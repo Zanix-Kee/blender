@@ -36,7 +36,7 @@ DEFAULTS = dict(
     frame=0, start=0, end=0, step=1,            # 0 = usar lo que trae el archivo
     samples=128, denoise=True, scale=100, res_x=0, res_y=0,
     format="PNG", quality=90, threads=0, scripts=False, preview=True,
-    noise=0.0,                                  # umbral de ruido adaptativo; 0 = el del archivo
+    noise=0.0, peer=True,                                  # umbral de ruido adaptativo; 0 = el del archivo
 )
 ENUMS = dict(engine=("cycles", "eevee"), device=("auto", "cpu", "gpu", "gpu+cpu"),
              mode=("still", "animation"), format=("PNG", "JPEG", "EXR", "MP4"))
@@ -230,6 +230,8 @@ class Tracker:
                           "final": "Preparando el render final"}.get(self.phase, self.phase)
         elif t.startswith("[bfarm] AVISO") and not j.get("warn"):
             j["warn"] = t[8:].strip()
+        elif t.startswith("[bfarm] Memoria"):
+            j["pool"] = t[8:].strip()
         elif "Read blend" in t:
             j["stage"] = "Cargando el archivo .blend"
         elif t.startswith("[bfarm] TERMINADO"):
@@ -491,28 +493,30 @@ def _num(x):
         return None
 
 
-def gpu_stats():
+def _smi(*args, timeout=6):
     try:
-        out = subprocess.run([SMI, "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,"
-                              "power.draw,power.limit,driver_version", "--format=csv,noheader,nounits"],
-                             capture_output=True, text=True, timeout=5).stdout
+        return subprocess.run([SMI, *args], capture_output=True, text=True, timeout=timeout).stdout
     except (OSError, subprocess.SubprocessError):
-        out = ""
+        return ""
+
+
+def gpu_stats():
+    base = "index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,power.draw,power.limit,driver_version"
+    out = _smi("--query-gpu=" + base + ",pcie.link.gen.current,pcie.link.width.current", "--format=csv,noheader,nounits")
+    if not out.strip() or "not a valid" in out.lower():          # drivers viejos: sin campos PCIe
+        out = _smi("--query-gpu=" + base, "--format=csv,noheader,nounits")
     gpus, driver = [], ""
     for ln in out.strip().splitlines():
         c = [x.strip() for x in ln.split(",")]
-        if len(c) < 9:
+        if len(c) < 9 or not c[0].isdigit():
             continue
         driver = c[8]
         gpus.append(dict(i=int(c[0]), name=c[1], util=_num(c[2]), vram_used=_num(c[3]), vram_total=_num(c[4]),
-                         temp=_num(c[5]), power=_num(c[6]), power_max=_num(c[7])))
+                         temp=_num(c[5]), power=_num(c[6]), power_max=_num(c[7]),
+                         pcie_gen=_num(c[9]) if len(c) > 9 else None, pcie_w=_num(c[10]) if len(c) > 10 else None))
     if gpus and _ST["cuda"] is None:
-        try:
-            hdr = subprocess.run([SMI], capture_output=True, text=True, timeout=5).stdout
-            m = re.search(r"CUDA Version:\s*([\d.]+)", hdr)
-            _ST["cuda"] = m[1] if m else ""
-        except (OSError, subprocess.SubprocessError):
-            _ST["cuda"] = ""
+        m = re.search(r"CUDA Version:\s*([\d.]+)", _smi())
+        _ST["cuda"] = m[1] if m else ""
     if not gpus:                      # AMD (mejor esfuerzo)
         try:
             j = json.loads(subprocess.run(["rocm-smi", "--showuse", "--showmeminfo", "vram", "--showproductname",
@@ -523,10 +527,83 @@ def gpu_stats():
                                      util=_num(v.get("GPU use (%)")),
                                      vram_used=(_num(v.get("VRAM Total Used Memory (B)")) or 0) / 1048576,
                                      vram_total=(_num(v.get("VRAM Total Memory (B)")) or 0) / 1048576,
-                                     temp=None, power=None, power_max=None))
+                                     temp=None, power=None, power_max=None, pcie_gen=None, pcie_w=None))
         except (OSError, subprocess.SubprocessError, ValueError):
             pass
     return gpus, driver
+
+
+# ---- topologia entre GPU (NVLink / PCIe / XGMI): cambia poco, se refresca en segundo plano
+TOPO = {"v": {"kind": "unknown", "n": 0, "groups": [], "links": [], "speed": None}}
+
+
+def parse_topo(topo_txt, link_txt, n):
+    """topo_txt: salida de `nvidia-smi topo -m`; link_txt: de `nvidia-smi nvlink --status`."""
+    mat = [[None] * n for _ in range(n)]
+    for ln in topo_txt.splitlines():
+        m = re.match(r"^GPU(\d+)\s+(.*)$", ln.strip())
+        if m and int(m[1]) < n:
+            for j, tok in enumerate(m[2].split()[:n]):
+                mat[int(m[1])][j] = tok
+    parent = list(range(n))
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    nv = 0
+    for i in range(n):
+        for j in range(n):
+            t = mat[i][j] or ""
+            if i != j and re.fullmatch(r"NV\d+", t):
+                nv += 1
+                parent[find(i)] = find(j)
+    groups = {}
+    for i in range(n):
+        groups.setdefault(find(i), []).append(i)
+    groups = [g for g in groups.values()]
+    links, speed, cur = [0] * n, None, -1
+    for ln in link_txt.splitlines():
+        m = re.match(r"^GPU\s+(\d+):", ln.strip())
+        if m:
+            cur = int(m[1])
+            continue
+        m = re.search(r"Link\s+\d+:\s*([\d.]+)\s*GB/s", ln)
+        if m and 0 <= cur < n:
+            links[cur] += 1
+            speed = speed or float(m[1])
+    if n < 2:
+        kind = "single"
+    elif nv:
+        kind = "nvlink"
+    elif any(any(r) for r in mat):
+        kind = "pcie"
+    else:
+        kind = "unknown"
+    return dict(kind=kind, n=n, groups=groups, links=links, speed=speed)
+
+
+def topo_loop():
+    while True:
+        try:
+            n = len(gpu_stats()[0]) if _smi("-L").strip() else 0
+            if n:
+                t = parse_topo(_smi("topo", "-m"), _smi("nvlink", "--status", timeout=15), n)
+                if t["kind"] == "unknown" and n > 1:
+                    t["kind"] = "pcie"
+                TOPO["v"] = t
+            else:
+                try:
+                    x = subprocess.run(["rocm-smi", "--showtopotype"], capture_output=True, text=True, timeout=8).stdout
+                except (OSError, subprocess.SubprocessError):
+                    x = ""
+                if "XGMI" in x.upper():
+                    TOPO["v"] = dict(kind="xgmi", n=0, groups=[], links=[], speed=None)
+        except Exception as e:
+            print("topo:", e, file=sys.stderr)
+        time.sleep(60)
 
 
 def cpu_stats():
@@ -600,7 +677,8 @@ def stats():
             running = next((j["name"] for j in STATE.values() if j["status"] == "running"), "")
         _ST["v"] = dict(now=time.time(), gpus=gpus, driver=driver, cuda=_ST["cuda"] or "", cpu=cpu_stats(),
                         ram=ram_stats(), disk=disk, running=running, idle_since=None if busy else last,
-                        idle_warn_min=float(os.environ.get("IDLE_WARN_MIN", "10")))
+                        idle_warn_min=float(os.environ.get("IDLE_WARN_MIN", "10")), topo=TOPO["v"],
+                        blender_gpus=len(HW["gpus"]) if HW["ready"] else None)
         _ST["t"] = time.time()
         return _ST["v"]
 
@@ -670,7 +748,7 @@ class H(BaseHTTPRequestHandler):
         pv = JOBS / j["id"] / "preview.png"
         v["preview"] = int(pv.stat().st_mtime) if pv.exists() else 0
         v["warn"] = j.get("warn", "")
-        for k in ("stage", "detail", "device", "rendering"):
+        for k in ("stage", "detail", "device", "rendering", "pool"):
             v[k] = j.get(k, "")
         now = time.time()
         if j["status"] == "running":
@@ -934,7 +1012,7 @@ def main():
             shutil.rmtree(d, ignore_errors=True)
     load_jobs()
     threading.Thread(target=detect_hw, daemon=True).start()
-    for fn in (worker, inbox_watcher, cleaner):
+    for fn in (worker, inbox_watcher, cleaner, topo_loop):
         threading.Thread(target=fn, daemon=True).start()
     WAKE.set()
     srv = ThreadingHTTPServer((HOST, PORT), H)

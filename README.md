@@ -48,6 +48,7 @@ Ajustes opcionales: junto a `escena.blend` copia `escena.json`, ej. `{"preset":"
 - **12 presets**: imagen = Boceto, Borrador, Normal, Alta, Final, Cine, Ultra; animación = Boceto MP4, Vista previa MP4, Rápida PNG, Final PNG, Cine EXR. Cada uno muestra su tiempo relativo (1× = Normal).
 - Calidad (muestras), umbral de ruido, resolución (720p a 8K), tamaño %, PNG/JPEG/EXR/MP4, denoise.
 - CPU, GPU, GPU+CPU; **todas las GPU** (OptiX/CUDA/HIP/oneAPI/Metal) y todos los núcleos. Un trabajo a la vez usando todas las GPU.
+- **Multi-GPU con detección de NVLink**: las GPU se numeran desde 1; el panel Sistema detecta NVLink/PCIe (también muestra el ancho del bus PCIe), agrupa las GPU unidas por NVLink y avisa si Blender ve menos GPU que el sistema. Con «Combinar VRAM entre GPU con NVLink» (activado por defecto) Blender reparte texturas y geometría entre GPU con NVLink; **sin NVLink la VRAM no se suma** (cada GPU carga la escena completa). Infinity Fabric (AMD) se detecta pero Cycles/HIP no combina memoria.
 - **Monitor de recursos** en la web: uso, VRAM, temperatura y vatios de cada GPU; CPU (núcleos reales del contenedor), RAM, RAM que usa Blender, disco libre, driver y CUDA.
 - **Mis archivos**: lo subido se queda en la lista; botón **↻ Repetir** en cada trabajo para renderizar otra vez con otros ajustes sin volver a subir.
 - Subida comprimida y en 4 trozos paralelos con reintentos; vista previa rápida; último frame en vivo en animaciones.

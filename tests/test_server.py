@@ -7,7 +7,8 @@ D = tempfile.mkdtemp()
 PORT = 8094
 PW = "testtesttest1"
 env = dict(os.environ, BFARM_DATA=D, BLENDER_BIN=str(ROOT / "tests" / "fake_blender.cmd"), PORT=str(PORT),
-           BFARM_PASSWORD=PW, BFARM_STDBUF="0", NVIDIA_SMI=str(ROOT / "tests" / "fake_smi.cmd"))
+           BFARM_PASSWORD=PW, FAKE_GPUS="4", FAKE_NVLINK="pairs", BFARM_STDBUF="0", NVIDIA_SMI=str(ROOT / "tests" / "fake_smi.cmd"))
+
 srv = subprocess.Popen([sys.executable, str(ROOT / "server" / "app.py")], env=env,
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 U = "http://127.0.0.1:%d" % PORT
@@ -27,6 +28,22 @@ def check(name, cond, extra=""):
     global ok
     ok &= bool(cond)
     print(("OK   " if cond else "FAIL ") + name, extra if not cond else "")
+
+
+# --- topologia (parse_topo) con nvidia-smi simulado: 8 GPU en pares NVLink, malla completa, sin NVLink
+sys.path.insert(0, str(ROOT / "server"))
+os.environ["BFARM_DATA"] = D
+import app as A
+def fake(mode, n, *args):
+    e = dict(os.environ, FAKE_GPUS=str(n), FAKE_NVLINK=mode)
+    return subprocess.run([sys.executable, str(ROOT / "tests" / "fake_smi.py"), *args], env=e, capture_output=True, text=True).stdout
+for mode, n, kind, groups in (("pairs", 8, "nvlink", [[0, 1], [2, 3], [4, 5], [6, 7]]), ("all", 8, "nvlink", [list(range(8))]), ("none", 8, "pcie", [[i] for i in range(8)]), ("pairs", 1, "single", [[0]])):
+    t = A.parse_topo(fake(mode, n, "topo", "-m"), fake(mode, n, "nvlink", "--status"), n)
+    check("topologia %s x%d -> %s" % (mode, n, kind), t["kind"] == kind and sorted(t["groups"]) == groups, t)
+t = A.parse_topo(fake("pairs", 8, "topo", "-m"), fake("pairs", 8, "nvlink", "--status"), 8)
+check("enlaces NVLink activos por GPU y velocidad", t["links"] == [4] * 8 and t["speed"] == 14.062, (t["links"], t["speed"]))
+t = A.parse_topo("", "", 4)
+check("sin salida de nvidia-smi no falla", t["kind"] in ("unknown", "pcie") and len(t["groups"]) == 4, t)
 
 
 def wait(jid, want=("done", "failed", "canceled"), t=30):
@@ -114,7 +131,11 @@ try:
     s = call("/api/stats")
     for k in ("gpus", "cpu", "ram", "disk", "idle_since", "idle_warn_min", "driver", "cuda"):
         check("stats trae " + k, k in s)
-    check("2 GPU detectadas", len(s["gpus"]) == 2 and s["gpus"][0]["util"] == 87.0 and s["gpus"][0]["vram_total"] == 12288.0, s["gpus"])
+    check("4 GPU detectadas con PCIe", len(s["gpus"]) == 4 and s["gpus"][0]["util"] == 87.0 and s["gpus"][0]["vram_total"] == 24576.0 and s["gpus"][0]["pcie_w"] == 16.0, s["gpus"][:1])
+    time.sleep(1.5)
+    s = call("/api/stats")
+    check("API expone topologia NVLink", s["topo"]["kind"] == "nvlink" and sorted(s["topo"]["groups"]) == [[0, 1], [2, 3]], s["topo"])
+    check("API expone cuantas GPU ve Blender", s.get("blender_gpus") == 2, s.get("blender_gpus"))
     check("driver y CUDA", s["driver"] == "560.35" and s["cuda"] == "12.6", (s["driver"], s["cuda"]))
     check("disco con datos", s["disk"].get("free", 0) > 0)
 

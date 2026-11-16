@@ -64,6 +64,16 @@ if s["engine"] == "cycles":
     for d in prefs.devices:
         d.use = (d in gpus and use_gpu) or (d.type == "CPU" and (not use_gpu or wanted == "gpu+cpu"))
     c.device = "GPU" if use_gpu else "CPU"
+    n_gpu = len([d for d in prefs.devices if d.use and d.type != "CPU"])
+    if use_gpu and n_gpu > 1 and s.get("peer", True) and prefs.compute_device_type in ("CUDA", "OPTIX"):
+        # reparte texturas/geometria entre GPU unidas por NVLink (solo surte efecto donde hay NVLink)
+        try:
+            prefs.use_peer_memory = True
+            log("Memoria distribuida entre GPU (NVLink): activada para %d GPU; solo se combina entre GPU con NVLink" % n_gpu)
+        except Exception:
+            log("Memoria distribuida: no disponible en esta version de Blender")
+    elif use_gpu and n_gpu > 1:
+        log("Memoria distribuida entre GPU: desactivada (cada GPU carga la escena completa)")
     log("Dispositivo: %s via %s %s" % (c.device, prefs.compute_device_type, [d.name for d in prefs.devices if d.use]))
     if s["samples"] > 0:
         c.samples = s["samples"]
