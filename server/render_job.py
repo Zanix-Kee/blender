@@ -102,6 +102,35 @@ else:
         im.quality = s["quality"]
         im.color_mode = "RGB"
 
+# ---- vista previa rapida (imagen fija): baja calidad primero, se ve mientras corre la final ----
+def quick_preview():
+    if s["mode"] != "still" or not s.get("preview", True):
+        return
+    keep = (r.filepath, r.resolution_percentage, r.use_file_extension, im.file_format, im.color_mode)
+    keep_samples = scene.cycles.samples if s["engine"] == "cycles" else None
+    try:
+        if keep_samples:
+            scene.cycles.samples = min(keep_samples, 24)
+        r.resolution_percentage = min(r.resolution_percentage, 30)
+        r.use_file_extension = False
+        im.file_format, im.color_mode = "PNG", "RGB"
+        r.filepath = os.path.join(os.path.dirname(out), "preview.png")
+        if s["frame"] > 0:
+            scene.frame_set(s["frame"])
+        log("Vista previa rapida...")
+        bpy.ops.render.render(write_still=True)
+        log("Vista previa lista")
+    except Exception as e:
+        log("AVISO vista previa: %s" % e)
+    finally:
+        r.filepath, r.resolution_percentage, r.use_file_extension, im.file_format, im.color_mode = keep
+        if keep_samples:
+            scene.cycles.samples = keep_samples
+
+
+r.use_persistent_data = True   # reutiliza la escena ya cargada entre previa y final
+quick_preview()
+
 # ---- rango ----
 if s["mode"] == "animation":
     if s["start"] > 0:

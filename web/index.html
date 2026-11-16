@@ -28,7 +28,7 @@ details summary{cursor:pointer;color:var(--mut);margin-top:10px}
 .bar i{display:block;height:100%;background:var(--ac);transition:width .4s}
 .st{font-size:12px;padding:2px 8px;border-radius:9px;border:1px solid var(--line)}
 .done{color:var(--ok)}.failed{color:var(--bad)}.running{color:var(--ac)}
-.job{display:flex;gap:12px}.job img{width:120px;height:80px;object-fit:cover;border-radius:6px;background:var(--bg)}
+.job{display:flex;gap:12px;flex-wrap:wrap}.job img{width:240px;max-width:100%;height:150px;object-fit:contain;border-radius:6px;background:var(--bg)}.job .in{min-width:220px}
 .job .in{flex:1;min-width:0}.job a,.job button{font-size:13px;padding:4px 9px}
 a{color:var(--ac)}pre{background:var(--bg);border:1px solid var(--line);padding:8px;border-radius:6px;overflow:auto;max-height:240px;font-size:12px}
 .tip{font-size:12px;color:var(--mut);margin-top:6px}
@@ -83,6 +83,7 @@ a{color:var(--ac)}pre{background:var(--bg);border:1px solid var(--line);padding:
       <label>Calidad JPEG<input id="quality" type="number" min="1" max="100"></label>
       <label>Hilos CPU (0=auto)<input id="threads" type="number" min="0"></label>
       <label class="ck"><input id="denoise" type="checkbox"> Quitar ruido (denoise)</label>
+      <label class="ck"><input id="preview" type="checkbox"> Vista previa rápida (imagen fija)</label>
       <label class="ck"><input id="scripts" type="checkbox"> Permitir scripts del .blend ⚠</label>
     </div>
     <div class="tip">⚠ Los scripts embebidos pueden ejecutar código. Déjalo apagado salvo que confíes en el archivo (algunos rigs/drivers lo necesitan).</div>
@@ -106,37 +107,46 @@ $('go').onclick=async()=>{T=$('tok').value.trim();try{await start();localStorage
 const NAMES={draft:'Borrador',normal:'Normal',final:'Final',anim_preview:'Animación rápida (MP4)',anim_final:'Animación final (PNG)'};
 const TIPS={draft:'32 muestras, 50% tamaño: para comprobar luces y encuadre en segundos.',normal:'128 muestras, tamaño completo: buen equilibrio.',final:'512 muestras: calidad de entrega.',anim_preview:'Previsualización barata en video MP4.',anim_final:'Secuencia PNG de calidad media-alta, reanuda si se corta.'};
 const F=['samples','scale','format','device','start','end','step','frame','engine','res_x','res_y','quality','threads'];
-function apply(){F.forEach(k=>$(k).value=S[k]);$('denoise').checked=S.denoise;$('scripts').checked=S.scripts;
+function apply(){F.forEach(k=>$(k).value=S[k]);$('denoise').checked=S.denoise;$('preview').checked=S.preview!==false;$('scripts').checked=S.scripts;
  document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.mode));
  document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.preset));
  $('animrow').hidden=S.mode!='animation';$('stillrow').hidden=S.mode=='animation';
  [...$('format').options].forEach(o=>o.disabled=o.value=='MP4'&&S.mode!='animation');
  $('ptip').textContent=TIPS[S.preset]||'Ajustes personalizados.'}
-function readForm(){F.forEach(k=>{const e=$(k);S[k]=e.type=='number'?+e.value:e.value});S.denoise=$('denoise').checked;S.scripts=$('scripts').checked;S.preset='custom'}
+function readForm(){F.forEach(k=>{const e=$(k);S[k]=e.type=='number'?+e.value:e.value});S.denoise=$('denoise').checked;S.preview=$('preview').checked;S.scripts=$('scripts').checked;S.preset='custom'}
 function drawPresets(){const box=$('presets');box.innerHTML='';
  for(const k of Object.keys(INFO.presets)){if((INFO.presets[k].mode||'still')!=S.mode)continue;
   const b=document.createElement('button');b.textContent=NAMES[k]||k;b.dataset.v=k;b.onclick=()=>{S=Object.assign({},INFO.defaults,INFO.presets[k],{preset:k});apply();drawPresets()};box.appendChild(b)}
  apply()}
 document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{
  S=Object.assign({},INFO.defaults,INFO.presets[b.dataset.v=='still'?'normal':'anim_final'],{preset:b.dataset.v=='still'?'normal':'anim_final'});drawPresets()});
-document.querySelectorAll('.grid input,.grid select,#denoise,#scripts').forEach(e=>e.addEventListener('change',()=>{readForm();apply();document.querySelectorAll('#presets button').forEach(b=>b.classList.remove('on'))}));
+document.querySelectorAll('.grid input,.grid select,#denoise,#preview,#scripts').forEach(e=>e.addEventListener('change',()=>{readForm();apply();document.querySelectorAll('#presets button').forEach(b=>b.classList.remove('on'))}));
 
 const drop=$('drop');drop.onclick=()=>$('file').click();
 drop.ondragover=e=>{e.preventDefault();drop.classList.add('on')};drop.ondragleave=()=>drop.classList.remove('on');
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('on');add(e.dataTransfer.files)};$('file').onchange=e=>add(e.target.files);
 function add(files){for(const f of files){if(!/\.(blend|zip)$/i.test(f.name)){alert(f.name+': solo .blend o .zip');continue}
  const q={file:f,pct:0,state:'espera',up:null};queued.push(q)}draw();pump()}
-function draw(){$('ups').innerHTML=queued.map((q,i)=>`<div class="row mut" style="margin-top:6px"><span style="flex:1">${esc(q.file.name)} (${(q.file.size/1048576).toFixed(1)} MB)</span><span>${q.state}${q.state=='subiendo'?' '+q.pct+'%':''}</span><button onclick="rm(${i})">✕</button></div>`).join('');
+function draw(){$('ups').innerHTML=queued.map((q,i)=>`<div class="row mut" style="margin-top:6px"><span style="flex:1;word-break:break-all">${esc(q.file.name)} (${(q.file.size/1048576).toFixed(1)} MB)</span><span>${q.state}${q.state=='subiendo'?' '+q.pct+'%':''}${q.state=='subiendo'&&q.info?'<br><small>'+q.info+'</small>':''}</span><button onclick="rm(${i})">✕</button></div>`).join('');
  $('render').disabled=!queued.some(q=>q.up);}
 window.rm=i=>{queued.splice(i,1);draw()};
 let busy=false;async function pump(){if(busy)return;busy=true;
  for(const q of queued){if(q.state!='espera')continue;q.state='subiendo';draw();
   try{q.up=await upload(q);q.state='listo ✓'}catch(e){q.state='error: '+e.message}draw()}busy=false}
-function upload(q){return new Promise((res,rej)=>{const x=new XMLHttpRequest();
+const mb=b=>(b/1048576).toFixed(1);
+async function squeeze(q){ // .blend comprime muy bien: menos bytes por la red
+ if(!/\.blend$/i.test(q.file.name)||!window.CompressionStream)return null;
+ q.state='comprimiendo…';draw();
+ const b=await new Response(q.file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
+ return b.size<q.file.size*0.9?b:null}
+async function upload(q){const gz=await squeeze(q);const body=gz||q.file;q.state='subiendo';
+ return new Promise((res,rej)=>{const x=new XMLHttpRequest(),t0=Date.now();
  x.open('POST','/api/upload?name='+encodeURIComponent(q.file.name));x.setRequestHeader('Authorization','Bearer '+T);
- x.upload.onprogress=e=>{q.pct=Math.round(e.loaded/e.total*100);draw()};
+ if(gz)x.setRequestHeader('X-Encoding','gzip');
+ x.upload.onprogress=e=>{q.pct=Math.round(e.loaded/e.total*100);const sp=e.loaded/((Date.now()-t0)/1000||1);
+  q.info=mb(sp)+' MB/s · quedan ~'+fmt(Math.round((e.total-e.loaded)/(sp||1)))+(gz?' · comprimido '+mb(gz.size)+' de '+mb(q.file.size)+' MB':'');draw()};
  x.onload=()=>{let j={};try{j=JSON.parse(x.responseText)}catch{}x.status<300?res(j):rej(new Error(j.error||x.status))};
- x.onerror=()=>rej(new Error('red'));x.send(q.file)})}
+ x.onerror=()=>rej(new Error('red'));x.send(body)})}
 $('render').onclick=async()=>{readForm();const keep=S.preset;let n=0;
  for(const q of queued.filter(q=>q.up)){try{await api('/api/jobs',{method:'POST',body:JSON.stringify({upload:q.up.upload,name:q.up.name,settings:S})});n++}catch(e){alert(e.message)}}
  queued=queued.filter(q=>!q.up);draw();$('rmsg').textContent=n+' trabajo(s) en cola';poll()};
@@ -146,9 +156,9 @@ const fmt=s=>s==null?'':s>3600?(s/3600).toFixed(1)+' h':s>60?Math.round(s/60)+' 
 const ST={queued:'en cola',running:'renderizando',done:'terminado',failed:'falló',canceled:'cancelado'};
 const open_logs=new Set();
 async function poll(){let js;try{js=await api('/api/jobs')}catch{return}
- $('jobs').innerHTML=js.map(j=>{const img=j.files.find(f=>/\.(png|jpe?g)$/i.test(f));const t='?t='+encodeURIComponent(T);
+ $('jobs').innerHTML=js.map(j=>{const imgs=j.files.filter(f=>/\.(png|jpe?g)$/i.test(f));const img=imgs[imgs.length-1];const t='?t='+encodeURIComponent(T);
   const pr=Math.round(j.progress*100);
-  return `<div class="card job"><div>${img?`<img src="/api/jobs/${j.id}/files/${encodeURIComponent(img)}${t}">`:'<img>'}</div><div class="in">
+  return `<div class="card job"><div>${img?`<img src="/api/jobs/${j.id}/files/${encodeURIComponent(img)}${t}" title="${esc(img)}">`:j.preview?`<img src="/api/jobs/${j.id}/preview${t}&v=${j.preview}" title="vista previa (baja calidad)">`:'<img>'}</div><div class="in">
   <div class="row"><b style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(j.name)}</b><span class="st ${j.status}">${ST[j.status]}</span></div>
   <div class="mut">${j.settings.mode=='animation'?'Animación':'Imagen'} · ${j.settings.samples} muestras · ${j.settings.scale}% · ${j.settings.format}</div>
   ${j.status=='running'||j.status=='queued'?`<div class="bar"><i style="width:${pr}%"></i></div><div class="mut">${pr}%${j.frame?' · frame '+j.frame:''}${j.eta?' · quedan ~'+fmt(j.eta):''}</div><div class="mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.last||'')}</div>`:''}

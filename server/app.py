@@ -11,6 +11,7 @@ import subprocess
 import sys
 import threading
 import time
+import zlib
 import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -34,7 +35,7 @@ DEFAULTS = dict(
     preset="normal", engine="cycles", device="auto", mode="still",
     frame=0, start=0, end=0, step=1,            # 0 = usar lo que trae el archivo
     samples=128, denoise=True, scale=100, res_x=0, res_y=0,
-    format="PNG", quality=90, threads=0, scripts=False,
+    format="PNG", quality=90, threads=0, scripts=False, preview=True,
 )
 ENUMS = dict(engine=("cycles", "eevee"), device=("auto", "cpu", "gpu", "gpu+cpu"),
              mode=("still", "animation"), format=("PNG", "JPEG", "EXR", "MP4"))
@@ -412,6 +413,8 @@ class H(BaseHTTPRequestHandler):
         v["eta"] = j.get("eta")
         v["last"] = j.get("last", "")
         v["files"] = outputs(j["id"])
+        pv = JOBS / j["id"] / "preview.png"
+        v["preview"] = int(pv.stat().st_mtime) if pv.exists() else 0
         return v
 
     # -- rutas
@@ -432,7 +435,7 @@ class H(BaseHTTPRequestHandler):
             with LOCK:
                 js = sorted(STATE.values(), key=lambda j: -j["created"])
                 return self.send(200, [self.view(j) for j in js])
-        m = re.fullmatch(r"/api/jobs/([a-f0-9]{12})(/log|/zip|/files/(.+))?", path)
+        m = re.fullmatch(r"/api/jobs/([a-f0-9]{12})(/log|/zip|/preview|/files/(.+))?", path)
         if m and m[1] in STATE:
             j = STATE[m[1]]
             if not m[2]:
@@ -443,11 +446,13 @@ class H(BaseHTTPRequestHandler):
                 return self.send(200, txt, "text/plain; charset=utf-8")
             if m[2] == "/zip":
                 return self.zip(j)
+            if m[2] == "/preview":
+                return self.file(j, "preview.png", JOBS / j["id"])
             return self.file(j, unquote(m[3]))
         self.err(404, "no existe")
 
-    def file(self, j, name):
-        out = (JOBS / j["id"] / "out").resolve()
+    def file(self, j, name, base=None):
+        out = ((base or JOBS / j["id"] / "out")).resolve()
         f = (out / name).resolve()
         if f.parent != out or not f.is_file():
             return self.err(404, "no existe")
@@ -536,13 +541,28 @@ class H(BaseHTTPRequestHandler):
         dst = d / name
         try:
             left = n
+            dec = zlib.decompressobj(16 + zlib.MAX_WBITS) if self.headers.get("X-Encoding") == "gzip" else None
+            written = 0
             with open(dst, "wb") as f:
                 while left:
                     chunk = self.rfile.read(min(1 << 20, left))
                     if not chunk:
                         raise ValueError("subida interrumpida")
-                    f.write(chunk)
                     left -= len(chunk)
+                    parts = []
+                    if dec:   # el navegador comprime el .blend: se envia 2-4x menos
+                        while chunk:
+                            parts.append(dec.decompress(chunk, 1 << 24))
+                            chunk = dec.unconsumed_tail
+                    else:
+                        parts.append(chunk)
+                    for b in parts:
+                        written += len(b)
+                        if written > MAX_UPLOAD:
+                            raise ValueError("archivo demasiado grande al descomprimir")
+                        f.write(b)
+                if dec:
+                    f.write(dec.flush())
             if name.lower().endswith(".zip"):
                 safe_unzip(dst, d)
             blend = find_blend(d)
