@@ -2,185 +2,275 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>BlenderFarm Lite</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#e9e6ff">
+<title>BlenderFarm</title>
 <style>
-:root{--bg:#14161a;--card:#1d2026;--line:#2c313a;--tx:#e6e8eb;--mut:#9aa3af;--ac:#f5792a;--ok:#3fb950;--bad:#f85149;--warn:#d29922}
-@media(prefers-color-scheme:light){:root{--bg:#f4f5f7;--card:#fff;--line:#dfe3e8;--tx:#1b1f24;--mut:#667085}}
-*{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif}
-main{max-width:980px;margin:0 auto;padding:16px}
-h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 10px}
-header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
-.mut{color:var(--mut);font-size:13px}
-#drop{border:2px dashed var(--line);border-radius:10px;padding:24px;text-align:center;cursor:pointer}
-#drop.on{border-color:var(--ac);background:#f5792a15}
+:root{--tx:#262b57;--mut:#6a7098;--glass:rgba(255,255,255,.58);--glass2:rgba(255,255,255,.85);--stroke:rgba(255,255,255,.8);--in:rgba(255,255,255,.7);--line:rgba(120,110,200,.18);
+--shadow:0 12px 44px rgba(112,104,210,.18);--a1:#5b9dff;--a2:#9b7bff;--a3:#ee8bf0;--ok:#16a47a;--bad:#e5484d;--warn:#b7791f;
+--rainbow:linear-gradient(100deg,#5b8dff,#a06bff 30%,#ff72c6 55%,#ffae63 78%,#4fd1c5);--grad:linear-gradient(135deg,var(--a1),var(--a2) 60%,var(--a3));
+--font:ui-rounded,"SF Pro Rounded","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--tx:#eceaff;--mut:#a9a6d6;--glass:rgba(36,30,78,.55);--glass2:rgba(52,44,104,.75);--stroke:rgba(255,255,255,.13);--in:rgba(255,255,255,.07);--line:rgba(255,255,255,.1);--shadow:0 12px 44px rgba(0,0,0,.45);--warn:#f0b64a}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}[hidden]{display:none!important}
+html,body{height:100%}body{margin:0;color:var(--tx);font:15px/1.45 var(--font);background:#eef0ff;overflow-x:hidden}
+@media(prefers-color-scheme:dark){body{background:#0e0b22}}
+/* ---------- fondo iridiscente ---------- */
+.bg{position:fixed;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(1200px 700px at 12% 8%,#dcd3ff,transparent 60%),radial-gradient(900px 600px at 88% 14%,#ffd4ec,transparent 60%),radial-gradient(1000px 700px at 70% 95%,#c6efff,transparent 60%),radial-gradient(800px 500px at 5% 90%,#fff0c2,transparent 60%),#eef0ff}
+@media(prefers-color-scheme:dark){.bg{background:radial-gradient(1200px 700px at 12% 8%,#3a2a86,transparent 60%),radial-gradient(900px 600px at 88% 14%,#5a2a6e,transparent 60%),radial-gradient(1000px 700px at 70% 95%,#16436b,transparent 60%),radial-gradient(800px 500px at 5% 90%,#4a3a1e,transparent 60%),#0e0b22}}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.55;animation:drift 28s ease-in-out infinite alternate}
+.blob.b1{width:42vw;height:42vw;left:-8vw;top:-6vw;background:#b9a7ff}.blob.b2{width:36vw;height:36vw;right:-6vw;top:10vh;background:#ffb3e1;animation-delay:-9s}.blob.b3{width:40vw;height:40vw;left:30vw;bottom:-14vw;background:#9fe3ff;animation-delay:-17s}
+.beam{position:absolute;right:-12vw;top:9vh;width:62vw;height:16vh;transform:rotate(-11deg);background:linear-gradient(90deg,transparent,#ff9ad6bb 25%,#ffd37bbb 45%,#a5ffbcbb 62%,#7fd8ffbb 80%,#b79bffbb);filter:blur(30px);opacity:.5;animation:beam 14s ease-in-out infinite alternate}
+@keyframes drift{to{transform:translate(6vw,5vh) scale(1.12)}}@keyframes beam{to{opacity:.8;transform:rotate(-8deg) translateX(-3vw)}}
+/* ---------- barra superior ---------- */
+#bar{position:fixed;z-index:20;top:max(10px,env(safe-area-inset-top));left:12px;right:12px;height:54px;display:flex;align-items:center;gap:12px;padding:0 14px;border-radius:20px;background:var(--glass);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);border:1px solid var(--stroke);box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:17px;letter-spacing:-.02em}.brand svg{width:30px;height:30px}
+.brand span{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+#pill{margin:0 auto;display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:99px;background:var(--in);border:1px solid var(--line);font-size:13px;font-weight:600;max-width:46vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}.dot.run{background:var(--a2);animation:pulse 1.4s infinite}.dot.wait{background:#f0a93b}.dot.bad{background:var(--bad)}
+@keyframes pulse{0%{box-shadow:0 0 0 0 #9b7bffaa}100%{box-shadow:0 0 0 9px #9b7bff00}}
+.chips{display:flex;gap:8px;align-items:center}
+.chip{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--in);border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+@media(max-width:760px){.chips .chip{display:none}#pill{max-width:56vw}}
+/* ---------- escritorio ---------- */
+main{padding:78px 12px 104px;max-width:1240px;margin:0 auto;display:grid;gap:14px;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:start}
+.col{display:grid;gap:14px;align-content:start;min-width:0}
+@media(max-width:1000px){main{grid-template-columns:minmax(0,1fr)}body[data-tab=studio] .pane:not([data-pane=studio]),body[data-tab=jobs] .pane:not([data-pane=jobs]),body[data-tab=sys] .pane:not([data-pane=sys]){display:none}.col{display:contents}}
+.win{background:var(--glass);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);border:1px solid var(--stroke);border-radius:26px;padding:18px;box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.35);animation:rise .6s cubic-bezier(.2,.8,.2,1) both}
+.win:nth-child(2){animation-delay:.08s}.win:nth-child(3){animation-delay:.16s}
+@keyframes rise{from{opacity:0;transform:translateY(14px) scale(.985)}}
+.win>h2{display:flex;align-items:center;gap:10px;margin:0 0 14px;font-size:16px;font-weight:800;letter-spacing:-.01em}
+.ico{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--grad);color:#fff;flex:none;box-shadow:0 4px 14px #9b7bff55}.ico svg{width:17px;height:17px}
+.i{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em}
+.hero{font-size:clamp(26px,4.4vw,40px);line-height:1.05;font-weight:800;letter-spacing:-.035em;margin:0 0 6px}.hero em{font-style:normal;background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{color:var(--mut);margin:0 0 14px;font-size:14px}.mut{color:var(--mut);font-size:13px}.tip{font-size:12px;color:var(--mut);margin-top:6px;overflow-wrap:anywhere}
+/* ---------- controles ---------- */
+button,select,input{font:inherit;color:var(--tx)}
+input,select{background:var(--in);border:1px solid var(--line);border-radius:14px;padding:9px 12px;width:100%;outline:none;transition:.2s}
+input:focus,select:focus{border-color:var(--a2);box-shadow:0 0 0 4px #9b7bff2e}
+input[type=checkbox]{width:auto;accent-color:var(--a2)}
+button{border:1px solid var(--line);background:var(--in);border-radius:99px;padding:8px 15px;cursor:pointer;transition:transform .15s,box-shadow .2s,background .2s;font-weight:600}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px #9b7bff2a}button:active:not(:disabled){transform:scale(.97)}button:disabled{opacity:.45;cursor:default}
+.go{background:var(--grad);color:#fff;border:0;padding:13px 26px;font-size:16px;font-weight:800;box-shadow:0 10px 28px #9b7bff66;position:relative;overflow:hidden}
+.go:hover:not(:disabled){box-shadow:0 14px 34px #9b7bff88}.go::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,#fff5 50%,transparent 70%);transform:translateX(-100%);animation:shine 3.2s infinite}
+@keyframes shine{to{transform:translateX(100%)}}.go:disabled::after{display:none}
+.sm{padding:5px 12px;font-size:13px}.sm.p{background:var(--grad);color:#fff;border:0}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.seg button,button,select,input{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:7px 11px}
-button{cursor:pointer}button.p{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
-button.on{border-color:var(--ac);color:var(--ac)}button:disabled{opacity:.5;cursor:default}
-.seg button small{display:block;font-size:11px;color:var(--mut)}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:10px}
-label{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--mut)}
-label input,label select{width:100%}
-label.ck{flex-direction:row;align-items:center;gap:6px}label.ck input{width:auto}
-details summary{cursor:pointer;color:var(--mut);margin-top:10px}
-.bar{height:8px;background:var(--line);border-radius:5px;overflow:hidden;margin:6px 0 4px}
-.bar i{display:block;height:100%;background:var(--ac);transition:width .4s}
-.bar.hot i{background:var(--bad)}
-.st{font-size:12px;padding:2px 8px;border-radius:9px;border:1px solid var(--line)}
-.done{color:var(--ok)}.failed{color:var(--bad)}.running{color:var(--ac)}
-.warn{color:var(--warn);font-size:13px;margin-top:4px}
-.idle{background:#d2992222;border:1px solid var(--warn);border-radius:7px;padding:6px 10px;margin-bottom:10px;font-size:13px}
-.mon{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
-.mon b{font-size:13px}
-.job{display:flex;gap:12px;flex-wrap:wrap}.job img{width:240px;max-width:100%;height:150px;object-fit:contain;border-radius:6px;background:var(--bg)}
-.job .in{flex:1;min-width:220px}.job a,.job button{font-size:13px;padding:4px 9px}
-a{color:var(--ac)}pre{background:var(--bg);border:1px solid var(--line);padding:8px;border-radius:6px;overflow:auto;max-height:240px;font-size:12px}
-.tip{font-size:12px;color:var(--mut);margin-top:6px}
-#login{max-width:380px;margin:20vh auto}
+label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mut);font-weight:600}label.ck{flex-direction:row;align-items:center;gap:8px;font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:12px}
+details summary{cursor:pointer;color:var(--mut);margin-top:14px;font-weight:600}
+/* subida */
+#drop{border:2px dashed #9b7bff77;border-radius:22px;padding:26px 16px;text-align:center;cursor:pointer;background:linear-gradient(135deg,#ffffff30,#9b7bff10);transition:.25s}
+#drop:hover,#drop.on{border-color:var(--a2);background:linear-gradient(135deg,#ffffff50,#9b7bff22);transform:scale(1.01)}
+#drop .ico{width:52px;height:52px;border-radius:18px;margin:0 auto 8px}#drop .ico svg{width:26px;height:26px}#drop b{font-size:16px}
+.file{display:flex;align-items:center;gap:10px;padding:8px 12px;margin-top:8px;border-radius:16px;background:var(--in);border:1px solid var(--line);animation:rise .35s both}
+.file .nm{flex:1;min-width:0;word-break:break-all;font-weight:600}.file small{color:var(--mut);display:block;font-weight:500}
+.fbar{height:4px;border-radius:4px;background:var(--line);margin-top:4px;overflow:hidden}.fbar i{display:block;height:100%;background:var(--rainbow);transition:width .3s}
+/* modo + presets */
+.seg2{position:relative;display:inline-grid;grid-template-columns:1fr 1fr;padding:4px;border-radius:99px;background:var(--in);border:1px solid var(--line)}
+.seg2::before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 4px);border-radius:99px;background:var(--grad);box-shadow:0 6px 18px #9b7bff55;transition:transform .35s cubic-bezier(.3,1.3,.5,1)}
+.seg2[data-v=animation]::before{transform:translateX(100%)}.seg2 button{position:relative;background:none;border:0;padding:8px 18px;box-shadow:none!important;transform:none!important;transition:color .3s}.seg2 button.on{color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px;margin-top:12px}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border-radius:18px;padding:10px 12px;text-align:left;position:relative;background:var(--in)}
+.tile b{font-size:13.5px}.tile small{font-size:11.5px;color:var(--mut);font-weight:500}.tile::before{content:"";width:22px;height:22px;border-radius:8px;margin-bottom:4px;background:hsl(var(--h) 85% 68%);box-shadow:0 4px 12px hsl(var(--h) 85% 68%/.5)}
+.tile.on{border-color:transparent;background:var(--glass2);box-shadow:0 0 0 2px var(--a2),0 10px 26px #9b7bff44}
+/* ---------- trabajos ---------- */
+.job{display:grid;grid-template-columns:150px minmax(0,1fr);gap:14px;padding:12px;border-radius:22px;background:var(--in);border:1px solid var(--line);margin-bottom:12px;animation:rise .45s both}
+@media(max-width:520px){.job{grid-template-columns:minmax(0,1fr)}}
+.mn{min-width:0}
+.thumb{position:relative;aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:linear-gradient(135deg,#9b7bff22,#5b9dff22);display:grid;place-items:center;color:var(--mut)}
+.thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.ring{position:absolute;left:8px;bottom:8px;width:46px;height:46px;border-radius:50%;background:var(--glass2);backdrop-filter:blur(10px);display:grid;place-items:center;font-size:12px;font-weight:800}
+.ring svg{position:absolute;inset:0;transform:rotate(-90deg)}.ring circle{fill:none;stroke-width:4;stroke-linecap:round}.ring .t{stroke:var(--line)}.ring .v{stroke:url(#rg);transition:stroke-dasharray .5s}
+.jt{display:flex;align-items:center;gap:8px}.jt b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:15.5px}
+.st{white-space:nowrap;font-size:11.5px;padding:3px 10px;border-radius:99px;font-weight:700;background:var(--in);border:1px solid var(--line);flex:none}.st.done{color:var(--ok)}.st.failed{color:var(--bad)}.st.running{color:var(--a2)}
+.tags{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0;align-items:flex-start}.tag{white-space:nowrap;font-size:11.5px;padding:2px 9px;border-radius:99px;background:var(--glass);border:1px solid var(--line);color:var(--mut)}.tag.gpu{color:var(--a2);font-weight:700}
+.stage{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px}.stage .dot{width:8px;height:8px}.stage small{color:var(--mut);font-weight:500;font-size:12.5px}
+.pbar{height:10px;border-radius:99px;background:var(--line);overflow:hidden;margin:8px 0;position:relative}
+.pbar i{display:block;height:100%;width:0;border-radius:99px;background:var(--rainbow);background-size:200% 100%;animation:flow 3s linear infinite;transition:width .6s cubic-bezier(.3,.9,.3,1)}
+.pbar.ind i{width:35%!important;animation:flow 2.2s linear infinite,slide 1.6s ease-in-out infinite alternate}
+@keyframes flow{to{background-position:-200% 0}}@keyframes slide{to{transform:translateX(185%)}}
+.met{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:4px 10px;margin:2px 0 4px}.met div{font-size:11px;color:var(--mut);font-weight:600}.met b{display:block;font-size:14px;color:var(--tx);font-weight:800;font-variant-numeric:tabular-nums}
+.last{font:11.5px/1.3 ui-monospace,Consolas,monospace;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.warn{margin-top:6px;padding:7px 11px;border-radius:14px;background:#f0b64a22;border:1px solid #f0b64a66;color:var(--warn);font-size:12.5px}
+.fail{color:var(--bad);font-size:13px;margin-top:4px}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.acts a{text-decoration:none}
+pre{background:var(--in);border:1px solid var(--line);padding:8px;border-radius:12px;overflow:auto;max-height:230px;font-size:11.5px;margin:8px 0 0;width:100%;grid-column:1/-1}
+.empty{text-align:center;color:var(--mut);padding:26px 10px}
+/* ---------- recursos ---------- */
+.rings{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:10px;margin-bottom:12px}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--mut);font-weight:600;text-align:center}
+.gr{--p:0;width:74px;height:74px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--c,#9b7bff) calc(var(--p)*1%),var(--line) 0);transition:.5s;position:relative}
+.gr::before{content:"";position:absolute;inset:8px;border-radius:50%;background:var(--glass2)}.gr b{position:relative;font-size:15px;color:var(--tx);font-weight:800}
+.gr.hot{--c:#ff6b81}
+.gpu{padding:10px 12px;border-radius:18px;background:var(--in);border:1px solid var(--line);margin-bottom:8px}.gpu b{font-size:13.5px}
+.mini{height:7px;border-radius:7px;background:var(--line);overflow:hidden;margin:5px 0}.mini i{display:block;height:100%;background:var(--grad);border-radius:7px;transition:width .6s}.mini.hot i{background:linear-gradient(90deg,#ff9a6b,#ff5d7a)}
+.idle{padding:9px 13px;border-radius:16px;background:#f0b64a22;border:1px solid #f0b64a66;color:var(--warn);font-size:13px;margin-bottom:12px;font-weight:600}
+/* ---------- dock ---------- */
+#dock{position:fixed;z-index:20;bottom:max(14px,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:6px;padding:8px;border-radius:26px;background:var(--glass);backdrop-filter:blur(26px) saturate(1.6);-webkit-backdrop-filter:blur(26px) saturate(1.6);border:1px solid var(--stroke);box-shadow:var(--shadow)}
+#dock button{position:relative;width:54px;height:54px;padding:0;border-radius:18px;display:grid;place-items:center;background:none;border:0;color:var(--mut);transition:transform .25s cubic-bezier(.3,1.5,.5,1),background .2s}
+#dock button svg{width:25px;height:25px}#dock button:hover{transform:translateY(-6px) scale(1.12);box-shadow:none;color:var(--tx)}#dock button.on{background:var(--grad);color:#fff;box-shadow:0 8px 20px #9b7bff66}
+#dock small{position:absolute;top:2px;right:2px;min-width:18px;height:18px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0 4px}
+@media(min-width:1001px){#dock{bottom:14px}}
+/* ---------- aviso flotante + login ---------- */
+#toast{position:fixed;z-index:30;left:50%;bottom:92px;transform:translate(-50%,20px);padding:10px 18px;border-radius:99px;background:var(--glass2);backdrop-filter:blur(20px);border:1px solid var(--stroke);box-shadow:var(--shadow);font-weight:600;opacity:0;pointer-events:none;transition:.35s;max-width:90vw;text-align:center}#toast.on{opacity:1;transform:translate(-50%,0)}
+#login{min-height:100vh;display:grid;place-items:center;padding:20px}#login .win{max-width:400px;width:100%;text-align:center}#login .brand{justify-content:center;margin-bottom:8px;font-size:22px}#login .brand svg{width:44px;height:44px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
-<main>
-<div id="login" class="card" hidden>
-  <h2>BlenderFarm Lite</h2>
-  <p class="mut">Escribe la contraseña que pusiste en tu plantilla (BFARM_PASSWORD) o, si no pusiste ninguna, la que aparece en los logs de tu instancia.</p>
-  <div class="row"><input id="tok" type="password" placeholder="Contraseña" style="flex:1"><button class="p" id="go">Entrar</button></div>
-  <p id="lerr" class="failed"></p>
-</div>
+<body data-tab="studio">
+<svg width="0" height="0" style="position:absolute"><defs>
+<linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b9dff"/><stop offset=".5" stop-color="#a06bff"/><stop offset="1" stop-color="#ff72c6"/></linearGradient>
+<linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fd3ff"/><stop offset=".5" stop-color="#b9a0ff"/><stop offset="1" stop-color="#ffb0e4"/></linearGradient>
+<linearGradient id="lg2" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#fff" stop-opacity=".15"/></linearGradient>
+<symbol id="logo" viewBox="0 0 32 32"><path d="M16 2.5 28 9v14L16 29.5 4 23V9z" fill="url(#lg1)"/><path d="M16 2.5 28 9 16 15.5 4 9z" fill="url(#lg2)"/><path d="M16 15.5V29.5L4 23V9z" fill="#ffffff22"/><circle cx="12.2" cy="16.2" r="1.5" fill="#2d2a63"/><circle cx="19.8" cy="16.2" r="1.5" fill="#2d2a63"/><path d="M13.4 19.8q2.6 1.8 5.2 0" stroke="#2d2a63" stroke-width="1.2" fill="none" stroke-linecap="round"/></symbol>
+<symbol id="i-up" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5 4 4 0 0 1 17.5 18"/><path d="M12 12v8M9 14.5 12 11.5l3 3"/></symbol>
+<symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+<symbol id="i-q" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+<symbol id="i-cpu" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/></symbol>
+<symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7z"/></symbol>
+</defs></svg>
+<div class="bg"><i class="blob b1"></i><i class="blob b2"></i><i class="blob b3"></i><i class="beam"></i></div>
+
+<div id="login" hidden><div class="win">
+  <div class="brand"><svg><use href="#logo"/></svg><span>BlenderFarm</span></div>
+  <p class="hero" style="font-size:26px">Tu granja de <em>render</em>,<br>lista en segundos.</p>
+  <p class="sub">Escribe la contraseña de tu plantilla (<code>BFARM_PASSWORD</code>) o la que aparece en los logs de la instancia.</p>
+  <div class="row"><input id="tok" type="password" placeholder="Contraseña" style="flex:1"><button class="go" style="padding:10px 20px;font-size:15px" id="go">Entrar</button></div>
+  <p id="lerr" class="fail"></p>
+</div></div>
 
 <div id="app" hidden>
-<header><h1>BlenderFarm <span class="mut">Lite</span></h1><div class="mut" id="hw">detectando hardware…</div></header>
+<div id="bar"><div class="brand"><svg><use href="#logo"/></svg><span>BlenderFarm</span></div>
+  <div id="pill"><i class="dot"></i><span>Conectando…</span></div>
+  <div class="chips" id="chips"></div></div>
 
-<div class="card"><h2>Recursos de la máquina</h2><div id="res" class="mut">cargando…</div></div>
+<main>
+ <div class="col">
+  <section class="win pane" data-pane="studio" id="studio">
+    <h1 class="hero">Sube tu escena.<br>Recibe tu <em>render</em>.</h1>
+    <p class="sub">Arrastra tus .blend, elige la calidad y descansa: nosotros hacemos el resto.</p>
+    <div id="drop"><div class="ico"><svg class="i"><use href="#i-up"/></svg></div><b>Suelta tus archivos aquí</b><div class="mut">.blend o .zip con texturas · o haz clic para elegir</div><input id="file" type="file" accept=".blend,.zip" multiple hidden></div>
+    <div class="tip">Tip: en Blender usa <i>Archivo ▸ Datos externos ▸ Empaquetar todo</i>. Lo que subas se queda aquí para repetirlo con otros ajustes sin volver a subirlo.</div>
+    <div id="ups"></div>
+  </section>
 
-<div class="card">
-  <h2>1. Tus archivos</h2>
-  <div id="drop">Arrastra aquí uno o varios <b>.blend</b> (o un <b>.zip</b> con texturas) o haz clic<input id="file" type="file" accept=".blend,.zip" multiple hidden></div>
-  <div class="tip">Consejo: en Blender usa <i>Archivo ▸ Datos externos ▸ Empaquetar todo</i> para incluir texturas, o sube un .zip con la carpeta completa. Los archivos subidos se quedan aquí: puedes renderizarlos otra vez con otros ajustes sin volver a subirlos.</div>
-  <div id="ups"></div>
-</div>
-
-<div class="card" id="settings">
-  <h2>2. Elige qué renderizar</h2>
-  <div class="row seg" id="mode">
-    <button data-v="still">🖼 Una imagen</button><button data-v="animation">🎞 Animación</button>
-  </div>
-  <div class="row seg" id="presets" style="margin-top:8px"></div>
-  <div class="tip" id="ptip"></div>
-  <div class="grid">
-    <label>Calidad (muestras)<input id="samples" type="number" min="0"><span class="tip">Más = menos ruido y más lento. 0 = lo que trae el archivo.</span></label>
-    <label>Resolución<select id="resol"><option value="0x0">La del archivo</option><option value="1280x720">HD 720p</option><option value="1920x1080">Full HD 1080p</option><option value="2560x1440">QHD 1440p</option><option value="3840x2160">4K UHD</option><option value="7680x4320">8K UHD</option><option value="custom">Personalizada (avanzado)</option></select></label>
-    <label>Tamaño %<input id="scale" type="number" min="1" max="400"><span class="tip">Se combina con la resolución. 50 = 4× más rápido.</span></label>
-    <label>Formato<select id="format"><option>PNG</option><option>JPEG</option><option value="EXR">EXR (HDR)</option><option>MP4</option></select></label>
-    <label>Dispositivo<select id="device"><option value="auto">Automático (GPU si hay)</option><option value="gpu">Solo GPU</option><option value="cpu">Solo CPU</option><option value="gpu+cpu">GPU + CPU</option></select></label>
-  </div>
-  <div class="grid" id="animrow" hidden>
-    <label>Frame inicial<input id="start" type="number" min="0"><span class="tip">0 = el del archivo</span></label>
-    <label>Frame final<input id="end" type="number" min="0"></label>
-    <label>Salto (cada N)<input id="step" type="number" min="1"></label>
-  </div>
-  <div class="grid" id="stillrow">
-    <label>Frame a renderizar<input id="frame" type="number" min="0"><span class="tip">0 = el actual del archivo</span></label>
-  </div>
-  <details><summary>Opciones avanzadas</summary>
+  <section class="win pane" data-pane="studio" id="settings">
+    <h2><span class="ico"><svg class="i"><use href="#i-set"/></svg></span>Ajustes de render</h2>
+    <div class="seg2" id="mode" data-v="still"><button data-v="still">🖼 Imagen</button><button data-v="animation">🎞 Animación</button></div>
+    <div class="tiles" id="presets"></div>
+    <div class="tip" id="ptip"></div>
     <div class="grid">
-      <label>Motor<select id="engine"><option value="cycles">Cycles (recomendado)</option><option value="eevee">Eevee (requiere GPU+OpenGL)</option></select></label>
-      <label>Umbral de ruido<input id="noise" type="number" min="0" max="1" step="0.001"><span class="tip">Menor = más limpio y más lento. 0 = el del archivo.</span></label>
-      <label>Ancho px (0=archivo)<input id="res_x" type="number" min="0"></label>
-      <label>Alto px (0=archivo)<input id="res_y" type="number" min="0"></label>
-      <label>Calidad JPEG<input id="quality" type="number" min="1" max="100"></label>
-      <label>Hilos CPU (0=auto)<input id="threads" type="number" min="0"></label>
-      <label class="ck"><input id="denoise" type="checkbox"> Quitar ruido (denoise)</label>
-      <label class="ck"><input id="preview" type="checkbox"> Vista previa rápida (imagen fija)</label>
-      <label class="ck"><input id="scripts" type="checkbox"> Permitir scripts del .blend ⚠</label>
+      <label>Calidad (muestras)<input id="samples" type="number" min="0"></label>
+      <label>Resolución<select id="resol"><option value="0x0">La del archivo</option><option value="1280x720">HD 720p</option><option value="1920x1080">Full HD 1080p</option><option value="2560x1440">QHD 1440p</option><option value="3840x2160">4K UHD</option><option value="7680x4320">8K UHD</option><option value="custom">Personalizada</option></select></label>
+      <label>Tamaño %<input id="scale" type="number" min="1" max="400"></label>
+      <label>Formato<select id="format"><option>PNG</option><option>JPEG</option><option value="EXR">EXR (HDR)</option><option>MP4</option></select></label>
+      <label>Dispositivo<select id="device"><option value="auto">Automático</option><option value="gpu">Solo GPU</option><option value="cpu">Solo CPU</option><option value="gpu+cpu">GPU + CPU</option></select></label>
     </div>
-    <div class="tip">⚠ Los scripts embebidos pueden ejecutar código. Déjalo apagado salvo que confíes en el archivo (algunos rigs/drivers lo necesitan).</div>
-  </details>
-  <div class="row" style="margin-top:12px"><button class="p" id="render" disabled>🚀 Renderizar</button><span class="mut" id="rmsg"></span></div>
-</div>
-
-<div id="jobs"></div>
-<p class="mut">Modo SSH: copia el .blend a <code id="inbox">/data/inbox</code> con <code>scp</code> y se renderiza solo. Resultados en <code>/data/jobs/ID/out</code>.</p>
-</div>
+    <div class="grid" id="animrow" hidden>
+      <label>Frame inicial (0 = archivo)<input id="start" type="number" min="0"></label>
+      <label>Frame final<input id="end" type="number" min="0"></label>
+      <label>Salto (cada N)<input id="step" type="number" min="1"></label>
+    </div>
+    <div class="grid" id="stillrow"><label>Frame (0 = el actual)<input id="frame" type="number" min="0"></label></div>
+    <details><summary>Opciones avanzadas</summary>
+      <div class="grid">
+        <label>Motor<select id="engine"><option value="cycles">Cycles (recomendado)</option><option value="eevee">Eevee (requiere GPU+OpenGL)</option></select></label>
+        <label>Umbral de ruido (0 = archivo)<input id="noise" type="number" min="0" max="1" step="0.001"></label>
+        <label>Ancho px<input id="res_x" type="number" min="0"></label><label>Alto px<input id="res_y" type="number" min="0"></label>
+        <label>Calidad JPEG<input id="quality" type="number" min="1" max="100"></label><label>Hilos CPU (0 = auto)<input id="threads" type="number" min="0"></label>
+        <label class="ck"><input id="denoise" type="checkbox"> Quitar ruido</label>
+        <label class="ck"><input id="preview" type="checkbox"> Vista previa rápida</label>
+        <label class="ck"><input id="scripts" type="checkbox"> Permitir scripts del .blend ⚠</label>
+      </div>
+      <div class="tip">⚠ Los scripts embebidos pueden ejecutar código. Déjalo apagado salvo que confíes en el archivo.</div>
+    </details>
+    <div class="row" style="margin-top:16px"><button class="go" id="render" disabled>🚀 Renderizar</button><span class="mut" id="rmsg"></span></div>
+  </section>
+ </div>
+ <div class="col">
+  <section class="win pane" data-pane="sys" id="sys"><h2><span class="ico"><svg class="i"><use href="#i-cpu"/></svg></span>Sistema</h2><div id="res" class="mut">cargando…</div></section>
+  <section class="win pane" data-pane="jobs" id="jobsw"><h2><span class="ico"><svg class="i"><use href="#i-q"/></svg></span>Renders</h2><div id="jobs"><div class="empty">Aún no hay renders.<br>Sube un archivo y pulsa <b>Renderizar</b>.</div></div>
+    <div class="tip">SSH: copia el .blend a <code id="inbox">/data/inbox</code> con <code>scp</code> y se renderiza solo.</div></section>
+ </div>
 </main>
+
+<nav id="dock">
+ <button data-t="studio" class="on" title="Estudio"><svg class="i"><use href="#i-spark"/></svg></button>
+ <button data-t="jobs" title="Renders"><svg class="i"><use href="#i-q"/></svg><small id="badge" hidden>0</small></button>
+ <button data-t="sys" title="Sistema"><svg class="i"><use href="#i-cpu"/></svg></button>
+</nav>
+</div>
+<div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
-let T=localStorage.getItem('bf_t')||'',INFO=null,S={},files=[],JOBS=[];
+let T=localStorage.getItem('bf_t')||'',INFO=null,S={},files=[],JOBS=[],ST8={},GPUIDLE=0;
 if(location.hash.startsWith('#t=')){T=decodeURIComponent(location.hash.slice(3));localStorage.setItem('bf_t',T);history.replaceState(null,'',location.pathname)}
 async function api(p,o={}){o.headers=Object.assign({Authorization:'Bearer '+T},o.headers||{});
  const r=await fetch(p,o);if(r.status==401){showLogin();throw 0}
  const t=await r.text();let j;try{j=JSON.parse(t)}catch{j=t}if(!r.ok)throw new Error(j.error||t);return j}
 function showLogin(){$('app').hidden=true;$('login').hidden=false}
 $('go').onclick=async()=>{T=$('tok').value.trim();try{await start();localStorage.setItem('bf_t',T)}catch{$('lerr').textContent='Contraseña incorrecta'}};
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmt=s=>s==null?'':s>3600?(s/3600).toFixed(1)+' h':s>60?Math.round(s/60)+' min':s+' s';
+$('tok').onkeydown=e=>{if(e.key=='Enter')$('go').click()};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=s=>s==null?'—':s>=3600?Math.floor(s/3600)+' h '+String(Math.round(s%3600/60)).padStart(2,'0')+' min':s>=60?Math.floor(s/60)+' min '+String(Math.round(s%60)).padStart(2,'0')+' s':Math.round(s)+' s';
 const mb=b=>(b/1048576).toFixed(1),gb=b=>(b/1073741824).toFixed(1);
-
+let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),3800)}
+/* ---------- dock / pestanas ---------- */
+document.querySelectorAll('#dock button').forEach(b=>b.onclick=()=>goTab(b.dataset.t));
+function goTab(t){document.body.dataset.tab=t;document.querySelectorAll('#dock button').forEach(x=>x.classList.toggle('on',x.dataset.t==t));
+ if(innerWidth>1000)({studio:$('studio'),jobs:$('jobsw'),sys:$('sys')})[t].scrollIntoView({behavior:'smooth',block:'start'});else scrollTo({top:0,behavior:'smooth'})}
 /* ---------- presets ---------- */
 const NAMES={sketch:'Boceto',draft:'Borrador',normal:'Normal',high:'Alta',final:'Final',cine:'Cine',ultra:'Ultra',anim_sketch:'Boceto MP4',anim_preview:'Vista previa MP4',anim_fast:'Rápida PNG',anim_final:'Final PNG',anim_cine:'Cine EXR'};
 const COST={sketch:'≈0.01×',draft:'≈0.06×',normal:'1×',high:'≈2×',final:'≈4×',cine:'≈8×',ultra:'≈16×',anim_sketch:'≈0.01×',anim_preview:'≈0.05×',anim_fast:'≈0.5×',anim_final:'1×',anim_cine:'≈2×'};
-const TIPS={sketch:'Casi instantáneo: solo para ver encuadre y composición.',draft:'Para comprobar luces y materiales en segundos.',normal:'Buen equilibrio calidad/tiempo.',high:'Menos ruido, para revisar con el cliente.',final:'Calidad de entrega.',cine:'Muy limpio, EXR para componer después.',ultra:'Máxima calidad: escenas difíciles (agua, vidrio, humo).',anim_sketch:'Video MP4 muy rápido para revisar movimiento.',anim_preview:'Video MP4 de baja calidad para aprobar la animación.',anim_fast:'Secuencia PNG rápida.',anim_final:'Secuencia PNG de calidad media-alta, reanuda si se corta.',anim_cine:'Secuencia EXR de alta calidad para postproducción.'};
+const TIPS={sketch:'Casi instantáneo: solo encuadre y composición.',draft:'Para comprobar luces y materiales en segundos.',normal:'Buen equilibrio calidad/tiempo.',high:'Menos ruido, para revisar con el cliente.',final:'Calidad de entrega.',cine:'Muy limpio, EXR para componer después.',ultra:'Máxima calidad: agua, vidrio, humo.',anim_sketch:'Video MP4 muy rápido para revisar movimiento.',anim_preview:'Video MP4 de baja calidad para aprobar.',anim_fast:'Secuencia PNG rápida.',anim_final:'Secuencia PNG calidad media-alta (reanuda si se corta).',anim_cine:'Secuencia EXR para postproducción.'};
 const F=['samples','scale','format','device','start','end','step','frame','engine','res_x','res_y','quality','threads','noise'];
 function apply(){F.forEach(k=>$(k).value=S[k]);$('denoise').checked=S.denoise;$('preview').checked=S.preview!==false;$('scripts').checked=S.scripts;
  const key=S.res_x+'x'+S.res_y;$('resol').value=[...$('resol').options].some(o=>o.value==key)?key:'custom';
- document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.mode));
- document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.preset));
+ $('mode').dataset.v=S.mode;document.querySelectorAll('#mode button').forEach(b=>b.classList.toggle('on',b.dataset.v==S.mode));
+ document.querySelectorAll('#presets .tile').forEach(b=>b.classList.toggle('on',b.dataset.v==S.preset));
  $('animrow').hidden=S.mode!='animation';$('stillrow').hidden=S.mode=='animation';
  [...$('format').options].forEach(o=>o.disabled=o.value=='MP4'&&S.mode!='animation');
- $('ptip').textContent=(TIPS[S.preset]||'Ajustes personalizados.')+(COST[S.preset]?' Tiempo relativo aprox.: '+COST[S.preset]+' (1× = Normal).':'')}
-function readForm(markCustom){F.forEach(k=>{const e=$(k);S[k]=e.type=='number'?+e.value:e.value});S.denoise=$('denoise').checked;S.preview=$('preview').checked;S.scripts=$('scripts').checked;if(markCustom)S.preset='custom'}
-function drawPresets(){const box=$('presets');box.innerHTML='';
+ $('ptip').textContent=(TIPS[S.preset]||'Ajustes personalizados.')+(COST[S.preset]?' Tiempo relativo: '+COST[S.preset]+' (1× = Normal).':'')}
+function readForm(c){F.forEach(k=>{const e=$(k);S[k]=e.type=='number'?+e.value:e.value});S.denoise=$('denoise').checked;S.preview=$('preview').checked;S.scripts=$('scripts').checked;if(c)S.preset='custom'}
+function drawPresets(){const box=$('presets');box.innerHTML='';let n=0;
  for(const k of Object.keys(INFO.presets)){if((INFO.presets[k].mode||'still')!=S.mode)continue;
-  const b=document.createElement('button');b.innerHTML=esc(NAMES[k]||k)+'<small>'+(COST[k]||'')+'</small>';b.dataset.v=k;
-  b.onclick=()=>{S=Object.assign({},INFO.defaults,INFO.presets[k],{preset:k});apply();drawPresets()};box.appendChild(b)}
+  const b=document.createElement('button');b.className='tile';b.dataset.v=k;b.style.setProperty('--h',(n++*47+215)%360);b.innerHTML='<b>'+esc(NAMES[k]||k)+'</b><small>'+(COST[k]||'')+'</small>';
+  b.onclick=()=>{S=Object.assign({},INFO.defaults,INFO.presets[k],{preset:k});apply()};box.appendChild(b)}
  apply()}
-document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{const k=b.dataset.v=='still'?'normal':'anim_final';
- S=Object.assign({},INFO.defaults,INFO.presets[k],{preset:k});drawPresets()});
+document.querySelectorAll('#mode button').forEach(b=>b.onclick=()=>{const k=b.dataset.v=='still'?'normal':'anim_final';S=Object.assign({},INFO.defaults,INFO.presets[k],{preset:k});drawPresets()});
 $('resol').onchange=e=>{const v=e.target.value;if(v!='custom'){const [w,h]=v.split('x');$('res_x').value=w;$('res_y').value=h}};
-document.querySelectorAll('.grid input,.grid select,#denoise,#preview,#scripts').forEach(e=>e.addEventListener('change',()=>{readForm(true);apply();document.querySelectorAll('#presets button').forEach(b=>b.classList.remove('on'))}));
-
+document.querySelectorAll('#settings input,#settings select').forEach(e=>e.addEventListener('change',()=>{readForm(true);apply();document.querySelectorAll('#presets .tile').forEach(b=>b.classList.remove('on'))}));
 /* ---------- archivos y subida ---------- */
 const drop=$('drop');drop.onclick=()=>$('file').click();
 drop.ondragover=e=>{e.preventDefault();drop.classList.add('on')};drop.ondragleave=()=>drop.classList.remove('on');
 drop.ondrop=e=>{e.preventDefault();drop.classList.remove('on');add(e.dataTransfer.files)};
-$('file').onchange=e=>{add(e.target.files);e.target.value=''};   // limpiar: permite volver a elegir el mismo archivo
+$('file').onchange=e=>{add(e.target.files);e.target.value=''};
 const ready=f=>!!(f.up||f.jobId);
-function add(list){for(const file of list){if(!/\.(blend|zip)$/i.test(file.name)){alert(file.name+': solo .blend o .zip');continue}
+function add(list){for(const file of list){if(!/\.(blend|zip)$/i.test(file.name)){toast(file.name+': solo .blend o .zip');continue}
  files.push({file,name:file.name,size:file.size,pct:0,state:'espera',up:null,jobId:null,chk:true})}draw();pump()}
-function draw(){$('ups').innerHTML=files.map((f,i)=>`<div class="row" style="margin-top:6px"><label class="ck" style="flex:1;word-break:break-all"><input type="checkbox" ${f.chk?'checked':''} ${ready(f)?'':'disabled'} onchange="ck(${i},this.checked)"> ${esc(f.name)}${f.size?' <span class="mut">('+mb(f.size)+' MB)</span>':''}</label><span class="mut">${esc(f.state)}${f.state=='subiendo'?' '+f.pct+'%':''}${f.state=='subiendo'&&f.info?'<br><small>'+esc(f.info)+'</small>':''}</span><button onclick="rm(${i})" title="Quitar de la lista">✕</button></div>`).join('');
+function draw(){$('ups').innerHTML=files.map((f,i)=>`<div class="file"><input type="checkbox" ${f.chk?'checked':''} ${ready(f)?'':'disabled'} onchange="ck(${i},this.checked)"><div class="nm">${esc(f.name)}<small>${f.size?mb(f.size)+' MB · ':''}${esc(f.state)}${f.state=='subiendo'?' '+f.pct+'%'+(f.info?' · '+esc(f.info):''):''}</small>${f.state=='subiendo'?`<div class="fbar"><i style="width:${f.pct}%"></i></div>`:''}</div><button class="sm" onclick="rm(${i})" title="Quitar de la lista">✕</button></div>`).join('');
  $('render').disabled=!files.some(f=>f.chk&&ready(f))}
-window.ck=(i,v)=>{files[i].chk=v;draw()};
-window.rm=i=>{files.splice(i,1);draw()};
+window.ck=(i,v)=>{files[i].chk=v;draw()};window.rm=i=>{files.splice(i,1);draw()};
 let busy=false;async function pump(){if(busy)return;busy=true;
  try{for(const f of files){if(f.state!='espera')continue;f.state='subiendo';draw();
-  try{f.up=await upload(f);f.state='listo ✓'}catch(e){f.state='error: '+(e&&e.message||e)}draw()}}
- finally{busy=false}
+  try{f.up=await upload(f);f.state='listo ✓'}catch(e){f.state='error: '+(e&&e.message||e)}draw()}}finally{busy=false}
  if(files.some(f=>f.state=='espera'))pump()}
-async function squeeze(f){ // .blend comprime muy bien: menos bytes por la red
- if(!/\.blend$/i.test(f.name)||!window.CompressionStream)return null;
- f.state='comprimiendo…';draw();
- const b=await new Response(f.file.stream().pipeThrough(new CompressionStream('gzip'))).blob();
- return b.size<f.file.size*0.9?b:null}
+async function squeeze(f){if(!/\.blend$/i.test(f.name)||!window.CompressionStream)return null;
+ f.state='comprimiendo…';draw();const b=await new Response(f.file.stream().pipeThrough(new CompressionStream('gzip'))).blob();return b.size<f.file.size*0.9?b:null}
 async function upload(f){const gz=await squeeze(f);const body=gz||f.file;f.state='subiendo';
  const size=body.size,CH=8<<20,PAR=4,n=Math.ceil(size/CH),done=new Array(n).fill(0),t0=Date.now();
  const st=await api('/api/upload/start?name='+encodeURIComponent(f.name)+'&size='+size+(gz?'&enc=gzip':''),{method:'POST'});
  const upd=()=>{const l=done.reduce((a,b)=>a+b,0);f.pct=Math.round(l/size*100);const sp=l/((Date.now()-t0)/1000||1);
-  f.info=mb(sp)+' MB/s · quedan ~'+fmt(Math.round((size-l)/(sp||1)))+' · '+PAR+' conexiones'+(gz?' · comprimido '+mb(size)+' de '+mb(f.file.size)+' MB':'');draw()};
- const one=(i)=>new Promise((res,rej)=>{const x=new XMLHttpRequest(),off=i*CH;let last=Date.now();
-  const dog=setInterval(()=>{if(Date.now()-last>60000)x.abort()},5000);   // trozo colgado -> se reintenta
+  f.info=mb(sp)+' MB/s · quedan ~'+fmt(Math.round((size-l)/(sp||1)))+(gz?' · comprimido '+mb(size)+' de '+mb(f.file.size)+' MB':'');draw()};
+ const one=i=>new Promise((res,rej)=>{const x=new XMLHttpRequest(),off=i*CH;let last=Date.now();
+  const dog=setInterval(()=>{if(Date.now()-last>60000)x.abort()},5000);
   x.open('POST','/api/upload/chunk?id='+st.id+'&off='+off);x.setRequestHeader('Authorization','Bearer '+T);
   x.upload.onprogress=e=>{last=Date.now();done[i]=e.loaded;upd()};
   x.onload=()=>x.status<300?(done[i]=Math.min(CH,size-off),res()):rej(new Error(x.status));
-  x.onerror=()=>rej(new Error('red'));x.onabort=()=>rej(new Error('sin respuesta'));x.onloadend=()=>clearInterval(dog);
-  x.send(body.slice(off,off+CH))});
- let next=0;const worker=async()=>{for(let i;(i=next++)<n;){
-  for(let t=0;;t++){try{await one(i);break}catch(e){done[i]=0;if(t>=3)throw new Error('trozo '+(i+1)+'/'+n+' fallo: '+e.message);await new Promise(r=>setTimeout(r,1000*(t+1)))}}}};
- await Promise.all(Array.from({length:Math.min(PAR,n)},worker));
- f.state='procesando…';draw();
+  x.onerror=()=>rej(new Error('red'));x.onabort=()=>rej(new Error('sin respuesta'));x.onloadend=()=>clearInterval(dog);x.send(body.slice(off,off+CH))});
+ let next=0;const worker=async()=>{for(let i;(i=next++)<n;){for(let t=0;;t++){try{await one(i);break}catch(e){done[i]=0;if(t>=3)throw new Error('trozo '+(i+1)+'/'+n+' fallo: '+e.message);await new Promise(r=>setTimeout(r,1000*(t+1)))}}}};
+ await Promise.all(Array.from({length:Math.min(PAR,n)},worker));f.state='procesando…';draw();
  return api('/api/upload/finish?id='+st.id,{method:'POST'})}
-
 $('render').onclick=async()=>{readForm(false);askNotif();let n=0;const errs=[];
  for(const f of files.filter(f=>f.chk&&ready(f))){
   try{let j;
@@ -188,60 +278,85 @@ $('render').onclick=async()=>{readForm(false);askNotif();let n=0;const errs=[];
    else j=await api('/api/jobs/'+f.jobId+'/rerun',{method:'POST',body:JSON.stringify({settings:S})});
    f.jobId=j.id;f.state='en el servidor ✓';n++}
   catch(e){errs.push(f.name+': '+e.message);if(/ya no existe/.test(e.message)){f.jobId=null;f.state='subir de nuevo'}}}
- draw();$('rmsg').textContent=n+' trabajo(s) en cola'+(errs.length?' · '+errs.join(' | '):'');poll()};
-
-/* ---------- trabajos ---------- */
-const ST={queued:'en cola',running:'renderizando',done:'terminado',failed:'falló',canceled:'cancelado'};
-const open_logs=new Set(),PREV={};
+ draw();$('rmsg').textContent='';toast(n?n+' render(s) en cola 🚀':errs.join(' | '));if(errs.length&&n)toast(errs.join(' | '));
+ if(n&&innerWidth<=1000)goTab('jobs');poll()};
+/* ---------- trabajos (se actualizan sin parpadeo) ---------- */
+const STL={queued:'en cola',running:'renderizando',done:'terminado',failed:'falló',canceled:'cancelado'};
+const open_logs=new Set(),PREV={},CARD={};
 function askNotif(){if(window.Notification&&Notification.permission=='default')Notification.requestPermission()}
-function notify(j){const ok=j.status=='done';document.title=(ok?'✔ ':'✖ ')+j.name+' – BlenderFarm';
+function notify(j){const ok=j.status=='done';document.title=(ok?'✔ ':'✖ ')+j.name+' – BlenderFarm';toast((ok?'✔ Terminado: ':'✖ Falló: ')+j.name);
  if(window.Notification&&Notification.permission=='granted')new Notification(ok?'Render terminado':'Render falló',{body:j.name})}
-window.onfocus=()=>{document.title='BlenderFarm Lite'};
+window.onfocus=()=>{document.title='BlenderFarm'};
+const tq=T0=>'?t='+encodeURIComponent(T0);
+function sig(j){return [j.status,j.files.length,j.preview,j.warn,j.error,j.name,j.device,j.settings.preset,j.settings.samples,open_logs.has(j.id)].join('|')}
+function staticHTML(j){const t=tq(T),imgs=j.files.filter(f=>/\.(png|jpe?g)$/i.test(f)),img=imgs[imgs.length-1],act=j.status=='running'||j.status=='queued';
+ const im=img?`<img onerror="this.remove()" src="/api/jobs/${j.id}/files/${encodeURIComponent(img)}${t}">`:j.preview?`<img onerror="this.remove()" src="/api/jobs/${j.id}/preview${t}&v=${j.preview}">`:'<svg class="i" style="width:34px;height:34px"><use href="#i-spark"/></svg>';
+ const dev=j.device?`<span class="tag gpu">${/^GPU/.test(j.device)?'⚡ ':'🖥 '}${esc(j.device.split(' · ').slice(0,2).join(' · '))}</span>`:'';
+ return `<div class="thumb">${im}${act?'<div class="ring"><svg viewBox="0 0 50 50"><circle class="t" cx="25" cy="25" r="21"/><circle class="v" cx="25" cy="25" r="21" stroke-dasharray="0 132"/></svg><span data-k="pct">0%</span></div>':''}</div>
+ <div class="mn"><div class="jt"><b title="${esc(j.name)}">${esc(j.name)}</b><span class="st ${j.status}">${STL[j.status]}</span></div>
+ <div class="tags"><span class="tag">${j.settings.mode=='animation'?'🎞 Animación':'🖼 Imagen'}</span>${NAMES[j.settings.preset]?`<span class="tag">${esc(NAMES[j.settings.preset])}</span>`:''}<span class="tag">${j.settings.samples} muestras</span><span class="tag">${j.settings.scale}%</span><span class="tag">${j.settings.format}</span>${dev}</div>
+ ${act?`<div class="stage"><i class="dot" data-k="dot"></i><span data-k="stage">…</span><small data-k="detail"></small></div><div class="pbar" data-k="bar"><i></i></div><div class="met" data-k="met"></div><div class="last" data-k="last"></div><div class="warn" data-k="hint" hidden></div>`:''}
+ ${j.status=='queued'?'<div class="mut" data-k="pos"></div>':''}
+ ${j.warn?`<div class="warn">⚠ ${esc(j.warn)}</div>`:''}${j.error?`<div class="fail">${esc(j.error)}</div>`:''}
+ ${!act&&j.elapsed?`<div class="mut">Tardó ${fmt(j.elapsed)}</div>`:''}
+ <div class="acts">${j.files.length?`<a href="/api/jobs/${j.id}/zip${t}"><button class="sm p">⬇ Descargar (${j.files.length})</button></a>`:''}${j.files.length==1?`<a href="/api/jobs/${j.id}/files/${encodeURIComponent(j.files[0])}${t}" download><button class="sm">${esc(j.files[0])}</button></a>`:''}
+ <button class="sm" onclick="logs('${j.id}')">Registro</button>${act?`<button class="sm" data-k="cancel" onclick="act('${j.id}','cancel')">Cancelar</button>`:`<button class="sm" onclick="rep('${j.id}')" title="Renderizar otra vez con otros ajustes, sin volver a subir">↻ Repetir</button><button class="sm" onclick="act('${j.id}','del')">Borrar</button>`}</div></div>
+ <pre id="log-${j.id}" ${open_logs.has(j.id)?'':'hidden'}></pre>`}
+const q=(el,k)=>el.querySelector('[data-k='+k+']');
+function dyn(el,j,now){if(j.status=='queued'){const p=q(el,'pos');if(p)p.textContent='#'+(j.pos||'?')+' en la cola'+(j.wait?' · esperando a '+j.wait:'');}
+ if(j.status!='running'&&j.status!='queued')return;
+ const pct=Math.round(j.progress*100),real=j.rendering&&(j.idle_s??0)<20,age=(now-(j.at||now))/1000;
+ const ring=el.querySelector('.ring .v');if(ring){ring.setAttribute('stroke-dasharray',(j.progress*131.9).toFixed(1)+' 132');q(el,'pct').textContent=j.status=='queued'?'…':pct+'%'}
+ const dot=q(el,'dot'),stage=q(el,'stage'),det=q(el,'detail'),bar=q(el,'bar'),met=q(el,'met'),last=q(el,'last'),hint=q(el,'hint');
+ if(!stage)return;
+ if(j.status=='queued'){stage.textContent='Esperando turno';dot.className='dot wait';bar.className='pbar';bar.firstChild.style.width='0%';met.innerHTML='';last.textContent='';return}
+ dot.className='dot '+(real?'run':(j.idle_s>120?'bad':'wait'));
+ stage.textContent=(real?'● Renderizando de verdad':j.stage||'Iniciando');det.textContent=real?'':(j.detail?'· '+j.detail:'');
+ bar.className='pbar'+(!real&&j.progress<=0.001?' ind':'');bar.firstChild.style.width=Math.max(2,j.progress*100)+'%';
+ const el1=(j.elapsed||0)+age,rs=j.render_s!=null?j.render_s+age:null,eta=j.eta!=null?Math.max(0,j.eta-age):null;
+ const m=[['Transcurrido',fmt(el1)],['Restante',eta!=null?'~'+fmt(eta):(real?'calculando…':'—')],['Termina',eta!=null?new Date(Date.now()+eta*1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):'—']];
+ if(j.samples)m.push(['Muestra',j.sample+' / '+j.samples]);if(j.total)m.push(['Frame',(j.frame??'—')+' ('+j.total+' en total)']);
+ if(rs!=null)m.push(['Render real',fmt(rs)]);
+ met.innerHTML=m.map(x=>'<div>'+x[0]+'<b>'+esc(x[1])+'</b></div>').join('');last.textContent=j.last||'';
+ const stalled=j.status=='running'&&j.idle_s>120;
+ let h='';if(stalled)h='⏳ Blender no escribe nada hace '+fmt(j.idle_s)+'. Si es la 1.ª vez puede estar compilando kernels; si no avanza, cancela y revisa el registro.';
+ else if(GPUIDLE>20&&real&&/^GPU/.test(j.device||''))h='La GPU está casi al 0% aunque el render dice usar GPU: puede estar renderizando con la CPU (driver u OptiX). Prueba la imagen :lts u otra máquina.';
+ hint.hidden=!h;hint.textContent=h;const c=q(el,'cancel');if(c)c.classList.toggle('p',stalled)}
 async function poll(){let js;try{js=await api('/api/jobs')}catch{return}
- JOBS=js;
- js.forEach(j=>{const p=PREV[j.id];if((p=='running'||p=='queued')&&(j.status=='done'||j.status=='failed'))notify(j);PREV[j.id]=j.status});
- $('jobs').innerHTML=js.map(j=>{const imgs=j.files.filter(f=>/\.(png|jpe?g)$/i.test(f));const img=imgs[imgs.length-1];const t='?t='+encodeURIComponent(T);
-  const pr=Math.round(j.progress*100),act=j.status=='running'||j.status=='queued',stalled=j.status=='running'&&j.idle_s>120;
-  return `<div class="card job"><div>${img?`<img src="/api/jobs/${j.id}/files/${encodeURIComponent(img)}${t}" title="${esc(img)}">`:j.preview?`<img src="/api/jobs/${j.id}/preview${t}&v=${j.preview}" title="vista previa (baja calidad)">`:'<img>'}</div><div class="in">
-  <div class="row"><b style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(j.name)}</b><span class="st ${j.status}">${ST[j.status]}</span></div>
-  <div class="mut">${j.settings.mode=='animation'?'Animación':'Imagen'} · ${NAMES[j.settings.preset]?esc(NAMES[j.settings.preset])+' · ':''}${j.settings.samples} muestras · ${j.settings.scale}% · ${j.settings.format}</div>
-  ${j.status=='queued'?`<div class="mut">#${j.pos||'?'} en la cola${j.wait?' · esperando a '+esc(j.wait):''}</div>`:''}
-  ${act?`<div class="bar"><i style="width:${pr}%"></i></div><div class="mut">${pr}%${j.frame?' · frame '+j.frame:''}${j.eta?' · quedan ~'+fmt(j.eta):''}</div><div class="mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.last||'')}</div>`:''}
-  ${stalled?`<div class="warn">⏳ Sin actividad hace ${fmt(j.idle_s)}. Si es la primera vez puede estar preparando kernels; si no avanza, cancela y revisa el registro.</div>`:''}
-  ${j.warn?`<div class="warn">⚠ ${esc(j.warn)}</div>`:''}
-  ${j.error?`<div class="failed">${esc(j.error)}</div>`:''}
-  <div class="row" style="margin-top:6px">
-   ${j.files.length?`<a href="/api/jobs/${j.id}/zip${t}"><button>⬇ Descargar todo (${j.files.length})</button></a>`:''}
-   ${j.files.length==1?`<a href="/api/jobs/${j.id}/files/${encodeURIComponent(j.files[0])}${t}" download><button>⬇ ${esc(j.files[0])}</button></a>`:''}
-   <button onclick="logs('${j.id}')">Registro</button>
-   ${act?`<button ${stalled?'class="p"':''} onclick="act('${j.id}','cancel')">Cancelar</button>`:`<button onclick="rep('${j.id}')" title="Renderizar este archivo otra vez con otros ajustes, sin volver a subirlo">↻ Repetir</button><button onclick="act('${j.id}','del')">Borrar</button>`}
-  </div><pre id="log-${j.id}" ${open_logs.has(j.id)?'':'hidden'}></pre></div></div>`}).join('');
- for(const id of open_logs){const p=$('log-'+id);if(p)fillLog(id)}}
-async function fillLog(id){const p=$('log-'+id);p.textContent=await api('/api/jobs/'+id+'/log');p.scrollTop=1e9}
-window.logs=id=>{open_logs.has(id)?open_logs.delete(id):open_logs.add(id);poll()};
-window.act=async(id,a)=>{if(a=='del'&&!confirm('¿Borrar trabajo y resultados?'))return;
- await api('/api/jobs/'+id+(a=='del'?'':'/cancel'),{method:a=='del'?'DELETE':'POST'});poll()};
-window.rep=id=>{const j=JOBS.find(x=>x.id==id);if(!j)return;
- S=Object.assign({},INFO.defaults,j.settings);
+ const at=Date.now();js.forEach(j=>{j.at=at;const p=PREV[j.id];if((p=='running'||p=='queued')&&(j.status=='done'||j.status=='failed'))notify(j);PREV[j.id]=j.status});
+ JOBS=js;const box=$('jobs');
+ if(!js.length){box.innerHTML='<div class="empty">Aún no hay renders.<br>Sube un archivo y pulsa <b>Renderizar</b>.</div>';return}
+ box.querySelector('.empty')?.remove();
+ const ids=new Set(js.map(j=>j.id));for(const id in CARD)if(!ids.has(id)){CARD[id].el.remove();delete CARD[id]}
+ let prev=null;js.forEach(j=>{let c=CARD[j.id];const s=sig(j);
+  if(!c){const el=document.createElement('div');el.className='job';c=CARD[j.id]={el,s:''};}
+  if(c.s!=s){c.el.innerHTML=staticHTML(j);c.s=s;if(open_logs.has(j.id))fillLog(j.id)}
+  if(prev?prev.nextSibling!==c.el:box.firstChild!==c.el)box.insertBefore(c.el,prev?prev.nextSibling:box.firstChild);
+  dyn(c.el,j,at);prev=c.el});
+ const act=js.filter(j=>j.status=='running'||j.status=='queued').length;$('badge').hidden=!act;$('badge').textContent=act;pillUpdate()}
+setInterval(()=>{const now=Date.now();JOBS.forEach(j=>{const c=CARD[j.id];if(c&&j.status=='running')dyn(c.el,j,now)})},1000);
+function pillUpdate(){const r=JOBS.find(j=>j.status=='running'),n=JOBS.filter(j=>j.status=='queued').length,p=$('pill');
+ p.innerHTML=r?`<i class="dot run"></i><span>${esc(r.name)} · ${Math.round(r.progress*100)}%${n?' · +'+n+' en cola':''}</span>`:n?`<i class="dot wait"></i><span>${n} en cola</span>`:'<i class="dot"></i><span>Máquina libre</span>'}
+async function fillLog(id){const p=$('log-'+id);if(!p)return;p.textContent=await api('/api/jobs/'+id+'/log');p.scrollTop=1e9}
+window.logs=id=>{open_logs.has(id)?open_logs.delete(id):open_logs.add(id);if(CARD[id])CARD[id].s='';poll()};
+window.act=async(id,a)=>{if(a=='del'&&!confirm('¿Borrar trabajo y resultados?'))return;await api('/api/jobs/'+id+(a=='del'?'':'/cancel'),{method:a=='del'?'DELETE':'POST'});poll()};
+window.rep=id=>{const j=JOBS.find(x=>x.id==id);if(!j)return;S=Object.assign({},INFO.defaults,j.settings);
  let f=files.find(x=>x.jobId==id);if(!f){f={name:j.name,size:0,pct:0,state:'en el servidor ✓',up:null,jobId:id,chk:true};files.push(f)}
- files.forEach(x=>x.chk=false);f.chk=true;drawPresets();draw();
- $('settings').scrollIntoView({behavior:'smooth'});$('rmsg').textContent='Ajusta lo que quieras y pulsa Renderizar'};
-
+ files.forEach(x=>x.chk=false);f.chk=true;drawPresets();draw();goTab('studio');setTimeout(()=>$('settings').scrollIntoView({behavior:'smooth'}),50);toast('Ajusta lo que quieras y pulsa Renderizar')};
 /* ---------- recursos ---------- */
 const pc=(a,b)=>b?Math.min(100,Math.round(100*a/b)):0;
-const bar=(p,hot)=>`<div class="bar${hot&&p>=90?' hot':''}"><i style="width:${p}%"></i></div>`;
+const gauge=(label,p,txt,hot)=>`<div class="gauge"><div class="gr${hot&&p>=90?' hot':''}" style="--p:${p}"><b>${txt??p+'%'}</b></div>${label}</div>`;
 async function res(){if(document.hidden)return;let s;try{s=await api('/api/stats')}catch{return}
  if(!INFO.hw.ready)INFO=Object.assign(INFO,await api('/api/info'));
- const g=s.gpus||[],c=s.cpu||{},r=s.ram||{},d=s.disk||{};let h='';
- if(s.idle_since&&(s.now-s.idle_since)/60>=s.idle_warn_min)h+=`<div class="idle">💤 Llevas ${Math.round((s.now-s.idle_since)/60)} min sin renders. Si ya terminaste, apaga la instancia para no seguir pagando.</div>`;
- h+='<div class="mon">';
- h+=g.length?g.map(x=>`<div><b>GPU ${x.i} · ${esc(x.name)}</b><div class="mut">uso ${x.util??'?'}%${x.temp!=null?' · '+x.temp+'°C':''}${x.power!=null?' · '+Math.round(x.power)+(x.power_max?'/'+Math.round(x.power_max):'')+' W':''}</div>${bar(x.util||0)}<div class="mut">VRAM ${(x.vram_used/1024).toFixed(1)} / ${(x.vram_total/1024).toFixed(1)} GB</div>${bar(pc(x.vram_used,x.vram_total),1)}</div>`).join(''):'<div><b>GPU</b><div class="mut">No se detectó GPU: se renderizará con CPU.</div></div>';
- h+=`<div><b>CPU · ${c.cores??'?'} núcleos</b><div class="mut">${esc(c.model||'')}${c.pct!=null?' · uso '+c.pct+'%':''}</div>${bar(c.pct||0)}</div>`;
- if(r.total)h+=`<div><b>RAM</b><div class="mut">${gb(r.used)} / ${gb(r.total)} GB${r.blender?' · Blender usa '+gb(r.blender)+' GB':''}</div>${bar(pc(r.used,r.total),1)}</div>`;
- if(d.total)h+=`<div><b>Disco</b><div class="mut ${d.free<5e9?'failed':''}">libre ${gb(d.free)} GB de ${gb(d.total)}${d.free<5e9?' · ¡poco espacio!':''}</div>${bar(100-pc(d.free,d.total),1)}</div>`;
- h+='</div><div class="tip">'+[g.length?g.length+'× GPU':'', s.driver?'driver '+s.driver:'', s.cuda?'CUDA '+s.cuda:'', INFO.hw.blender?'Blender '+INFO.hw.blender:'', s.running?'renderizando: '+esc(s.running):'máquina libre'].filter(Boolean).join(' · ')+'</div>';
+ const g=s.gpus||[],c=s.cpu||{},r=s.ram||{},d=s.disk||{};
+ const gu=g.length?Math.max(...g.map(x=>x.util||0)):null;GPUIDLE=(gu!=null&&gu<5)?GPUIDLE+2:0;
+ let h='';if(s.idle_since&&(s.now-s.idle_since)/60>=s.idle_warn_min)h+=`<div class="idle">💤 Llevas ${Math.round((s.now-s.idle_since)/60)} min sin renders. Si ya terminaste, apaga la instancia para no seguir pagando.</div>`;
+ h+='<div class="rings">'+(g.length?gauge('GPU'+(g.length>1?' (máx.)':''),Math.round(gu),null,0):'')+gauge('CPU',Math.round(c.pct||0),null,1)+(r.total?gauge('RAM',pc(r.used,r.total),null,1):'')+(d.total?gauge('Disco',100-pc(d.free,d.total),null,1):'')+'</div>';
+ h+=g.length?g.map(x=>`<div class="gpu"><b>GPU ${x.i} · ${esc(x.name)}</b><div class="mut">uso ${x.util??'?'}%${x.temp!=null?' · '+x.temp+'°C':''}${x.power!=null?' · '+Math.round(x.power)+(x.power_max?'/'+Math.round(x.power_max):'')+' W':''}</div><div class="mini"><i style="width:${x.util||0}%"></i></div><div class="mut">VRAM ${(x.vram_used/1024).toFixed(1)} / ${(x.vram_total/1024).toFixed(1)} GB</div><div class="mini${pc(x.vram_used,x.vram_total)>=90?' hot':''}"><i style="width:${pc(x.vram_used,x.vram_total)}%"></i></div></div>`).join(''):'<div class="gpu"><b>Sin GPU</b><div class="mut">No se detectó GPU: se renderizará con CPU.</div></div>';
+ h+=`<div class="mut">${[c.cores!=null?c.cores+' núcleos':'',esc(c.model||''),r.total?'RAM '+gb(r.used)+'/'+gb(r.total)+' GB':'',r.blender?'Blender usa '+gb(r.blender)+' GB':'',d.total?'Disco libre '+gb(d.free)+' GB'+(d.free<5e9?' ⚠':''):''].filter(Boolean).join(' · ')}</div>`;
+ h+=`<div class="tip">${[s.driver?'Driver '+s.driver:'',s.cuda?'CUDA '+s.cuda:'',INFO.hw.blender?'Blender '+INFO.hw.blender:''].filter(Boolean).join(' · ')}</div>`;
  $('res').innerHTML=h;
- $('hw').textContent=(INFO.hw.blender?'Blender '+INFO.hw.blender+' · ':'')+(g.length?g.length+'× GPU':'sin GPU')}
+ $('chips').innerHTML=[g.length?g.length+'× GPU':'CPU',INFO.hw.blender?'Blender '+INFO.hw.blender:''].filter(Boolean).map(x=>'<span class="chip">'+esc(x)+'</span>').join('')}
 async function start(){INFO=await api('/api/info');$('login').hidden=true;$('app').hidden=false;
  $('inbox').textContent=INFO.inbox;S=Object.assign({},INFO.defaults);drawPresets();res();poll();setInterval(poll,2000);setInterval(res,2000)}
 if(T)start().catch(showLogin);else showLogin();

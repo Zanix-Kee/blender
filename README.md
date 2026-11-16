@@ -51,6 +51,8 @@ Ajustes opcionales: junto a `escena.blend` copia `escena.json`, ej. `{"preset":"
 - **Monitor de recursos** en la web: uso, VRAM, temperatura y vatios de cada GPU; CPU (núcleos reales del contenedor), RAM, RAM que usa Blender, disco libre, driver y CUDA.
 - **Mis archivos**: lo subido se queda en la lista; botón **↻ Repetir** en cada trabajo para renderizar otra vez con otros ajustes sin volver a subir.
 - Subida comprimida y en 4 trozos paralelos con reintentos; vista previa rápida; último frame en vivo en animaciones.
+- **Progreso real por fases**: cargando, preparando (kernels/BVH), vista previa, "renderizando de verdad" (muestra x/y), guardando; tiempo transcurrido, restante y hora de término; qué dispositivo usa Blender de verdad.
+- Interfaz de cristal tipo sistema operativo (ventanas, dock, anillos de progreso); toda la web pesa ~45 KB, sin librerías ni imágenes.
 - Avisos: driver NVIDIA viejo (sugiere la imagen `:lts`), GPU sin memoria, trabajo sin actividad, poco disco, instancia inactiva (apágala para no pagar de más) y notificación del navegador al terminar.
 
 ## Seguridad

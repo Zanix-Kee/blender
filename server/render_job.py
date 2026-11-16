@@ -120,6 +120,7 @@ def quick_preview():
         r.filepath = os.path.join(os.path.dirname(out), "preview.png")
         if s["frame"] > 0:
             scene.frame_set(s["frame"])
+        log("FASE preview")
         log("Vista previa rapida...")
         bpy.ops.render.render(write_still=True)
         log("Vista previa lista")
@@ -132,9 +133,11 @@ def quick_preview():
 
 
 r.use_persistent_data = True   # reutiliza la escena ya cargada entre previa y final
+log("FASE preparando")
 quick_preview()
 
-# ---- rango ----
+# ---- render final ----
+log("FASE final")
 if s["mode"] == "animation":
     if s["start"] > 0:
         scene.frame_start = s["start"]

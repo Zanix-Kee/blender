@@ -140,7 +140,6 @@ WAKE = threading.Event()
 PARTS = {}          # subidas en trozos en curso
 
 RE_FRAME = re.compile(r"Fra:(\d+)")
-RE_SAMPLE = re.compile(r"Sample (\d+)/(\d+)")
 RE_DRIVER = re.compile(r"driver.{0,40}too old|too old.{0,40}driver", re.I)
 RE_OOM = re.compile(r"out of (device |gpu )?memory|CUDA_ERROR_OUT_OF_MEMORY|cudaErrorMemoryAllocation", re.I)
 WARN_DRIVER = ("El driver NVIDIA de esta maquina es antiguo para esta version de Blender. "
@@ -194,6 +193,96 @@ def rerun(src_id, settings):
     return new_job(src["name"], src["blend"], settings, src=JOBS / src_id / "input", link=True)
 
 
+HMS = r"(?:(\d+):)?(\d+):(\d+(?:\.\d+)?)"
+RE_TIME = re.compile(r"Time:" + HMS)
+RE_REMAIN = re.compile(r"Remaining:" + HMS)
+RE_SAMPLE = re.compile(r"[Ss]ample\s+(\d+)\s*/\s*(\d+)|Rendering\s+(\d+)\s*/\s*(\d+)\s+samples")
+RE_DEVICE = re.compile(r"\[bfarm\] Dispositivo: (\w+) via (\w+) (\[.*\])")
+PREV_W = 0.08       # peso de la vista previa rapida dentro del progreso de una imagen fija
+DETAIL = (("kernel", "Cargando kernels de la GPU (la 1a vez puede tardar varios minutos)"),
+          ("bvh", "Construyendo la geometria (BVH)"), ("synchroniz", "Sincronizando objetos"),
+          ("denois", "Quitando ruido"), ("loading image", "Cargando texturas"), ("updating", "Actualizando la escena"),
+          ("loading", "Cargando datos"), ("compil", "Compilando"))
+
+
+def hms(m):
+    return int(m[0] or 0) * 3600 + int(m[1]) * 60 + float(m[2])
+
+
+class Tracker:
+    """Convierte la salida de Blender en fase, progreso, tiempo restante y dispositivo."""
+
+    def __init__(self, j):
+        self.j, self.s = j, j["settings"]
+        self.preview = self.s["mode"] == "still" and self.s.get("preview", True) and self.s["engine"] == "cycles"
+        self.phase, self.done, self.t_render = "final", 0, None
+        j.update(stage="Iniciando Blender", detail="", device="", phase="", render_t0=None, progress=0.0,
+                 eta=None, sample=None, samples=None, frame=None, total=None, rendering=False)
+
+    def feed(self, line, now):
+        j, s, t = self.j, self.s, line.strip()
+        if not t:
+            return
+        if t.startswith("[bfarm] FASE "):
+            self.phase = t[13:].strip()
+            j.update(sample=None, samples=None, rendering=False, phase=self.phase)
+            j["stage"] = {"preparando": "Preparando", "preview": "Vista previa rapida",
+                          "final": "Preparando el render final"}.get(self.phase, self.phase)
+        elif t.startswith("[bfarm] AVISO") and not j.get("warn"):
+            j["warn"] = t[8:].strip()
+        elif "Read blend" in t:
+            j["stage"] = "Cargando el archivo .blend"
+        elif t.startswith("[bfarm] TERMINADO"):
+            j["stage"] = "Terminado"
+        m = RE_DEVICE.search(t)
+        if m:
+            j["device"] = "%s · %s · %s" % (m[1], m[2], ", ".join(re.findall(r"'([^']+)'", m[3])) or "sin nombre")
+            j["stage"] = "Configurando el dispositivo"
+        m = RE_RANGE.search(t)
+        if m:
+            j["total"] = max(1, (int(m[2]) - int(m[1])) // max(1, s["step"]) + 1)
+        if t.startswith("Saved:") and "preview.png" not in t:
+            self.done += 1
+            j["stage"] = "Guardando"
+        if t.startswith("Fra:") or "| Scene" in t:
+            m = RE_FRAME.search(t)
+            if m:
+                j["frame"] = int(m[1])
+            segs = [x.strip() for x in t.split("|")]
+            m = RE_SAMPLE.search(t)
+            if m:
+                cur, tot = int(m[1] or m[3]), int(m[2] or m[4])
+                j.update(sample=cur, samples=tot, rendering=True)
+                j["stage"] = "Vista previa rapida" if self.phase == "preview" else "Renderizando"
+                j["detail"] = "muestra %d de %d" % (cur, tot)
+                if self.phase != "preview" and self.t_render is None:
+                    self.t_render = j["render_t0"] = now      # aqui empieza el render de verdad
+            elif len(segs) > 3:
+                j["detail"] = segs[-1][:90]
+                low = segs[-1].lower()
+                if "preview" not in self.phase:
+                    j["stage"] = "Preparando la escena"
+                for k, txt in DETAIL:
+                    if k in low:
+                        j["detail"] = txt
+                        break
+        # ---- progreso
+        total = j.get("total") or 1
+        frac = (j["sample"] or 0) / (j["samples"] or 1) if j.get("samples") else 0
+        if self.phase == "preview":
+            j["progress"] = PREV_W * frac
+        else:
+            base = PREV_W if self.preview else 0.0
+            u = min(1.0, (self.done + (frac if self.done < total else 0)) / total)
+            j["progress"] = min(0.99, base + (1 - base) * u)
+            if self.t_render is not None and u > 0.005:
+                m = RE_REMAIN.search(t)
+                if m and s["mode"] == "still":              # estimacion propia de Blender (mas exacta)
+                    j["eta"] = int(hms(m.groups()))
+                else:
+                    j["eta"] = int((now - self.t_render) * (1 - u) / u)
+
+
 def run_job(j):
     jid = j["id"]
     jd = JOBS / jid
@@ -207,9 +296,7 @@ def run_job(j):
     with LOCK:
         j.update(status="running", started=j["started"] or time.time(), error="", last_at=time.time())
         save(j)
-    first = last = None
-    done = 0
-    t0 = time.time()
+    trk = Tracker(j)
     with open(jd / "log.txt", "a", errors="replace") as log:
         log.write("$ " + " ".join(cmd) + "\n")
         try:
@@ -230,24 +317,7 @@ def run_job(j):
                     j["warn"] = WARN_DRIVER
                 elif RE_OOM.search(line):
                     j["warn"] = WARN_OOM
-            m = RE_RANGE.search(line)
-            if m:
-                a, b = int(m[1]), int(m[2])
-                j["total"] = max(1, (b - a) // max(1, s["step"]) + 1)
-                first = a
-            m = RE_FRAME.search(line)
-            if m:
-                j["frame"] = int(m[1])
-            m = RE_SAMPLE.search(line)
-            if m:
-                j["sample"], j["samples"] = int(m[1]), int(m[2])
-            if line.startswith("Saved:"):
-                done += 1
-            total = j["total"] or 1
-            frac = (j["sample"] or 0) / (j["samples"] or 1) if j["samples"] else 0
-            j["progress"] = min(0.99, (done + (frac if done < total else 0)) / total)
-            if j["progress"] > 0.02:
-                j["eta"] = int((time.time() - t0) * (1 - j["progress"]) / j["progress"])
+            trk.feed(line, time.time())
         rc = p.wait()
     PROC.pop(jid, None)
     if j["status"] == "canceled":
@@ -600,6 +670,14 @@ class H(BaseHTTPRequestHandler):
         pv = JOBS / j["id"] / "preview.png"
         v["preview"] = int(pv.stat().st_mtime) if pv.exists() else 0
         v["warn"] = j.get("warn", "")
+        for k in ("stage", "detail", "device", "rendering"):
+            v[k] = j.get(k, "")
+        now = time.time()
+        if j["status"] == "running":
+            v["elapsed"] = int(now - (j.get("started") or now))
+            v["render_s"] = int(now - j["render_t0"]) if j.get("render_t0") else None
+        elif j.get("started") and j.get("finished"):
+            v["elapsed"] = int(j["finished"] - j["started"])
         if j["status"] == "running":
             v["idle_s"] = int(time.time() - j.get("last_at", time.time()))
         if j["status"] == "queued":
