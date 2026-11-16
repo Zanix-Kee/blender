@@ -28,7 +28,7 @@ if [ ! -f "$BASE/.deps-ok" ]; then
   say "Instalando dependencias..."
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  PKGS="python3-minimal curl ca-certificates xz-utils libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1 libgomp1"
+  PKGS="python3 curl ca-certificates xz-utils libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1 libgomp1"
   [ -n "${SSH_PUBKEY:-${PUBLIC_KEY:-}}" ] && PKGS="$PKGS openssh-server"
   # shellcheck disable=SC2086
   apt-get install -y -qq --no-install-recommends $PKGS >/dev/null

@@ -7,7 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # Blender sin interfaz: solo librerias de runtime (no hay X, VNC ni escritorio)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      python3-minimal ca-certificates curl xz-utils \
+      python3 ca-certificates curl xz-utils \
       libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1 libgomp1 \
  && if [ "$WITH_SSH" = 1 ]; then apt-get install -y --no-install-recommends openssh-server && mkdir -p /run/sshd; fi \
  && M=$(echo $BLENDER_VERSION | cut -d. -f1,2) \
