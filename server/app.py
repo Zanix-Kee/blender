@@ -124,6 +124,7 @@ STATE = {}          # id -> dict
 QUEUE = []          # ids en orden
 PROC = {}           # id -> Popen
 WAKE = threading.Event()
+PARTS = {}          # subidas en trozos en curso
 
 RE_FRAME = re.compile(r"Fra:(\d+)")
 RE_SAMPLE = re.compile(r"Sample (\d+)/(\d+)")
@@ -504,6 +505,8 @@ class H(BaseHTTPRequestHandler):
         try:
             if p.path == "/api/upload":      # cuerpo crudo = archivo; ?name=x.blend
                 return self.upload(parse_qs(p.query).get("name", ["file.blend"])[0])
+            if p.path in ("/api/upload/start", "/api/upload/chunk", "/api/upload/finish"):
+                return self.chunked(p.path.rsplit("/", 1)[1], parse_qs(p.query))
             if p.path == "/api/jobs":
                 b = self.body_json()
                 uid = str(b.get("upload", ""))
@@ -573,8 +576,82 @@ class H(BaseHTTPRequestHandler):
             return self.err(400, str(e))
         self.send(201, {"upload": uid, "name": Path(name).stem, "blend": blend})
 
+    # ---- subida en trozos paralelos (reintentable): start -> chunk x N -> finish
+    def chunked(self, step, q):
+        g = lambda k, d="": q.get(k, [d])[0]
+        if step == "start":
+            size = int(g("size", -1))
+            name = safe_name(g("name"))
+            if not 0 < size <= MAX_UPLOAD:
+                return self.err(413, "tamano invalido o mayor al maximo (%d GB)" % (MAX_UPLOAD >> 30))
+            if not name.lower().endswith((".blend", ".zip")):
+                return self.err(400, "solo .blend o .zip")
+            uid = secrets.token_hex(8)
+            (UPLOADS / uid).mkdir()
+            part = UPLOADS / uid / (name + ".part")
+            with open(part, "wb") as f:
+                f.truncate(size)
+            with LOCK:
+                PARTS[uid] = dict(name=name, size=size, got={}, gz=g("enc") == "gzip", lock=threading.Lock())
+            return self.send(201, {"id": uid})
+        u = PARTS.get(g("id"))
+        if not u:
+            return self.err(404, "subida desconocida")
+        d = UPLOADS / g("id")
+        part = d / (u["name"] + ".part")
+        if step == "chunk":
+            off, n = int(g("off", -1)), int(self.headers.get("Content-Length", -1))
+            if off < 0 or n <= 0 or n > 64 << 20 or off + n > u["size"]:
+                return self.err(400, "trozo invalido")
+            body = self.rfile.read(n)
+            if len(body) != n:
+                return self.err(400, "trozo incompleto")
+            with u["lock"]:
+                with open(part, "r+b") as f:
+                    f.seek(off)
+                    f.write(body)
+                u["got"][off] = n    # reenviar el mismo trozo es seguro (idempotente)
+            return self.send(200, {"got": sum(u["got"].values())})
+        # finish
+        if sum(u["got"].values()) != u["size"]:
+            return self.err(400, "faltan trozos (%d de %d bytes)" % (sum(u["got"].values()), u["size"]))
+        try:
+            dst = d / u["name"]
+            if u["gz"]:
+                dec, written = zlib.decompressobj(16 + zlib.MAX_WBITS), 0
+                with open(part, "rb") as src, open(dst, "wb") as out:
+                    while True:
+                        chunk = src.read(1 << 20)
+                        if not chunk:
+                            break
+                        while chunk:
+                            b = dec.decompress(chunk, 1 << 24)
+                            written += len(b)
+                            if written > MAX_UPLOAD:
+                                raise ValueError("archivo demasiado grande al descomprimir")
+                            out.write(b)
+                            chunk = dec.unconsumed_tail
+                    out.write(dec.flush())
+                part.unlink()
+            else:
+                part.rename(dst)
+            if u["name"].lower().endswith(".zip"):
+                safe_unzip(dst, d)
+            blend = find_blend(d)
+            if not blend:
+                raise ValueError("no hay ningun .blend dentro")
+        except Exception as e:
+            shutil.rmtree(d, ignore_errors=True)
+            PARTS.pop(g("id"), None)
+            return self.err(400, str(e))
+        PARTS.pop(g("id"), None)
+        self.send(201, {"upload": g("id"), "name": Path(u["name"]).stem, "blend": blend})
+
 
 def main():
+    for d in UPLOADS.iterdir():   # subidas abandonadas (>1 dia)
+        if d.is_dir() and time.time() - d.stat().st_mtime > 86400:
+            shutil.rmtree(d, ignore_errors=True)
     load_jobs()
     threading.Thread(target=detect_hw, daemon=True).start()
     for fn in (worker, inbox_watcher, cleaner):
