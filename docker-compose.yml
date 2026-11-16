@@ -1,0 +1,16 @@
+services:
+  blenderfarm:
+    build: .
+    ports: ["8080:8080", "2222:22"]
+    volumes: ["bfdata:/data"]
+    environment:
+      # BFARM_TOKEN: "pon-tu-token"      # si no, se genera y se muestra en el log
+      # SSH_PUBKEY: "ssh-ed25519 AAAA..." # activa SSH (usuario bf)
+      MAX_UPLOAD_GB: "20"
+      KEEP_DAYS: "0"                     # >0 = borrar trabajos viejos solos
+    deploy:
+      resources:
+        reservations:
+          devices: [{driver: nvidia, count: all, capabilities: [gpu]}]
+volumes:
+  bfdata:

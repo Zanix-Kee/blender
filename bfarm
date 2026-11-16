@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""CLI minima (para usar por SSH). Ejemplos:
+  bfarm escena.blend                      # imagen, preset normal
+  bfarm escena.blend -p final             # preset final
+  bfarm escena.blend -a --start 1 --end 120 -p anim_preview
+  bfarm status                            # lista trabajos
+  bfarm get ID                            # descarga ID.zip a la carpeta actual
+"""
+import argparse, json, os, sys, urllib.request, urllib.parse
+from pathlib import Path
+
+PORT = os.environ.get("PORT", "8080")
+BASE = "http://127.0.0.1:" + PORT
+DATA = Path(os.environ.get("BFARM_DATA", "/data"))
+TOKEN = os.environ.get("BFARM_TOKEN") or (DATA / "token").read_text().strip()
+
+
+def call(path, data=None, method=None, headers=None):
+    h = {"Authorization": "Bearer " + TOKEN, **(headers or {})}
+    r = urllib.request.Request(BASE + path, data=data, method=method, headers=h)
+    return urllib.request.urlopen(r)
+
+
+ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument("target", help=".blend/.zip, 'status' o 'get'")
+ap.add_argument("arg", nargs="?")
+ap.add_argument("-p", "--preset", default="normal")
+ap.add_argument("-a", "--anim", action="store_true")
+ap.add_argument("--start", type=int, default=0)
+ap.add_argument("--end", type=int, default=0)
+ap.add_argument("--frame", type=int, default=0)
+ap.add_argument("--samples", type=int)
+ap.add_argument("--scale", type=int)
+ap.add_argument("--device", choices=["auto", "cpu", "gpu", "gpu+cpu"])
+ap.add_argument("--format", choices=["PNG", "JPEG", "EXR", "MP4"])
+a = ap.parse_args()
+
+if a.target == "status":
+    for j in json.load(call("/api/jobs")):
+        print(j["id"], j["status"].ljust(9), "%3d%%" % (j["progress"] * 100), j["name"], len(j["files"]), "archivos")
+elif a.target == "get":
+    out = Path(a.arg + ".zip")
+    with call("/api/jobs/%s/zip" % a.arg) as r, open(out, "wb") as f:
+        while (b := r.read(1 << 20)):
+            f.write(b)
+    print("guardado", out)
+else:
+    p = Path(a.target)
+    s = {"preset": a.preset, "frame": a.frame, "start": a.start, "end": a.end}
+    if a.anim:
+        s["mode"] = "animation"
+    for k in ("samples", "scale", "device", "format"):
+        if getattr(a, k) is not None:
+            s[k] = getattr(a, k)
+    with open(p, "rb") as f:
+        up = json.load(call("/api/upload?name=" + urllib.parse.quote(p.name), f,
+                            headers={"Content-Length": str(p.stat().st_size)}))
+    j = json.load(call("/api/jobs", json.dumps({"upload": up["upload"], "name": up["name"], "settings": s}).encode()))
+    print("trabajo", j["id"], "en cola. Ver: bfarm status | Descargar: bfarm get", j["id"])
