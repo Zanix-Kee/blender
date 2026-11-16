@@ -64,3 +64,6 @@ Ajustes opcionales: junto a `escena.blend` copia `escena.json`, ej. `{"preset":"
 ## Notas
 - Eevee necesita GPU con OpenGL/EGL; en headless Cycles es lo fiable.
 - Sin probar contra Blender real ni Docker en esta máquina (solo con un Blender simulado): prueba primero con un `.blend` pequeño.
+
+## Licencia
+MIT + Commons Clause © 2026 Zanix: puedes usarlo, editarlo y publicarlo (conservando el aviso de autor), **pero no venderlo** ni ofrecerlo como servicio de pago. `server/render_job.py` es GPL-3.0-or-later por usar la API de Blender. Detalles en [LICENSE](LICENSE) y [NOTICE.md](NOTICE.md).

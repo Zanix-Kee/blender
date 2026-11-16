@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (c) 2026 Zanix. Corre dentro de Blender y usa su API (bpy), por eso es GPL. Ver NOTICE.md.
 """Corre DENTRO de Blender (headless): blender -b file.blend -P render_job.py -- config.json
 Tambien lista dispositivos: blender -b -P render_job.py -- devices.json  ({"action":"devices"})
 """
