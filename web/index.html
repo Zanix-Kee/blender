@@ -151,7 +151,7 @@ async function poll(){let js;try{js=await api('/api/jobs')}catch{return}
   return `<div class="card job"><div>${img?`<img src="/api/jobs/${j.id}/files/${encodeURIComponent(img)}${t}">`:'<img>'}</div><div class="in">
   <div class="row"><b style="flex:1;overflow:hidden;text-overflow:ellipsis">${esc(j.name)}</b><span class="st ${j.status}">${ST[j.status]}</span></div>
   <div class="mut">${j.settings.mode=='animation'?'Animación':'Imagen'} · ${j.settings.samples} muestras · ${j.settings.scale}% · ${j.settings.format}</div>
-  ${j.status=='running'||j.status=='queued'?`<div class="bar"><i style="width:${pr}%"></i></div><div class="mut">${pr}%${j.frame?' · frame '+j.frame:''}${j.eta?' · quedan ~'+fmt(j.eta):''}</div>`:''}
+  ${j.status=='running'||j.status=='queued'?`<div class="bar"><i style="width:${pr}%"></i></div><div class="mut">${pr}%${j.frame?' · frame '+j.frame:''}${j.eta?' · quedan ~'+fmt(j.eta):''}</div><div class="mut" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(j.last||'')}</div>`:''}
   ${j.error?`<div class="failed">${esc(j.error)}</div>`:''}
   <div class="row" style="margin-top:6px">
    ${j.files.length?`<a href="/api/jobs/${j.id}/zip${t}"><button>⬇ Descargar todo (${j.files.length})</button></a>`:''}

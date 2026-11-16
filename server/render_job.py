@@ -62,7 +62,7 @@ if s["engine"] == "cycles":
     for d in prefs.devices:
         d.use = (d in gpus and use_gpu) or (d.type == "CPU" and (not use_gpu or wanted == "gpu+cpu"))
     c.device = "GPU" if use_gpu else "CPU"
-    log("Dispositivo: %s %s" % (c.device, [d.name for d in prefs.devices if d.use]))
+    log("Dispositivo: %s via %s %s" % (c.device, prefs.compute_device_type, [d.name for d in prefs.devices if d.use]))
     if s["samples"] > 0:
         c.samples = s["samples"]
         c.use_adaptive_sampling = True

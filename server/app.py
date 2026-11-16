@@ -173,6 +173,8 @@ def run_job(j):
     with open(jd / "log.txt", "a", errors="replace") as log:
         log.write("$ " + " ".join(cmd) + "\n")
         try:
+            if shutil.which("stdbuf"):   # Blender no vacia stdout en tuberias: sin esto el progreso no se ve
+                cmd = ["stdbuf", "-o0", "-e0"] + cmd
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                  errors="replace", cwd=str(jd), start_new_session=True)
         except OSError as e:
@@ -181,6 +183,8 @@ def run_job(j):
         for line in p.stdout:
             log.write(line)
             log.flush()
+            if line.strip():
+                j["last"] = line.strip()[:200]
             m = RE_RANGE.search(line)
             if m:
                 a, b = int(m[1]), int(m[2])
@@ -406,6 +410,7 @@ class H(BaseHTTPRequestHandler):
         v = {k: j[k] for k in ("id", "name", "status", "settings", "created", "started", "finished",
                                "progress", "frame", "total", "sample", "samples", "error")}
         v["eta"] = j.get("eta")
+        v["last"] = j.get("last", "")
         v["files"] = outputs(j["id"])
         return v
 
