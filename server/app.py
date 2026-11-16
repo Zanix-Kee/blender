@@ -36,18 +36,28 @@ DEFAULTS = dict(
     frame=0, start=0, end=0, step=1,            # 0 = usar lo que trae el archivo
     samples=128, denoise=True, scale=100, res_x=0, res_y=0,
     format="PNG", quality=90, threads=0, scripts=False, preview=True,
+    noise=0.0,                                  # umbral de ruido adaptativo; 0 = el del archivo
 )
 ENUMS = dict(engine=("cycles", "eevee"), device=("auto", "cpu", "gpu", "gpu+cpu"),
              mode=("still", "animation"), format=("PNG", "JPEG", "EXR", "MP4"))
 RANGES = dict(frame=(0, 10**6), start=(0, 10**6), end=(0, 10**6), step=(1, 1000),
               samples=(0, 65536), scale=(1, 400), res_x=(0, 16384), res_y=(0, 16384),
-              quality=(1, 100), threads=(0, 512))
+              quality=(1, 100), threads=(0, 512), noise=(0.0, 1.0))
 PRESETS = {
-    "draft":   dict(samples=32, scale=50, denoise=True, mode="still"),
-    "normal":  dict(samples=128, scale=100, denoise=True, mode="still"),
-    "final":   dict(samples=512, scale=100, denoise=True, mode="still"),
-    "anim_preview": dict(samples=24, scale=50, denoise=True, mode="animation", format="MP4"),
-    "anim_final":   dict(samples=128, scale=100, denoise=True, mode="animation", format="PNG"),
+    # imagen fija: de menos a mas calidad
+    "sketch":  dict(samples=8,    scale=25,  noise=0.1,   mode="still"),
+    "draft":   dict(samples=32,   scale=50,  noise=0.05,  mode="still"),
+    "normal":  dict(samples=128,  scale=100, noise=0.0,   mode="still"),
+    "high":    dict(samples=256,  scale=100, noise=0.02,  mode="still"),
+    "final":   dict(samples=512,  scale=100, noise=0.01,  mode="still"),
+    "cine":    dict(samples=1024, scale=100, noise=0.005, mode="still", format="EXR"),
+    "ultra":   dict(samples=2048, scale=100, noise=0.002, mode="still", format="EXR"),
+    # animacion
+    "anim_sketch":  dict(samples=16,  scale=25,  noise=0.1,  mode="animation", format="MP4"),
+    "anim_preview": dict(samples=24,  scale=50,  noise=0.05, mode="animation", format="MP4"),
+    "anim_fast":    dict(samples=64,  scale=100, noise=0.03, mode="animation", format="PNG"),
+    "anim_final":   dict(samples=128, scale=100, noise=0.0,  mode="animation", format="PNG"),
+    "anim_cine":    dict(samples=256, scale=100, noise=0.01, mode="animation", format="EXR"),
 }
 
 
@@ -65,6 +75,9 @@ def clean(raw):
             elif t is int:
                 lo, hi = RANGES[k]
                 v = max(lo, min(hi, int(v)))
+            elif t is float:
+                lo, hi = RANGES[k]
+                v = max(lo, min(hi, float(v)))
             elif k in ENUMS and v not in ENUMS[k]:
                 continue
         except (TypeError, ValueError):
@@ -128,6 +141,11 @@ PARTS = {}          # subidas en trozos en curso
 
 RE_FRAME = re.compile(r"Fra:(\d+)")
 RE_SAMPLE = re.compile(r"Sample (\d+)/(\d+)")
+RE_DRIVER = re.compile(r"driver.{0,40}too old|too old.{0,40}driver", re.I)
+RE_OOM = re.compile(r"out of (device |gpu )?memory|CUDA_ERROR_OUT_OF_MEMORY|cudaErrorMemoryAllocation", re.I)
+WARN_DRIVER = ("El driver NVIDIA de esta maquina es antiguo para esta version de Blender. "
+               "Usa la imagen :lts o alquila una maquina con driver mas nuevo (CUDA 12.8+).")
+WARN_OOM = "La GPU se quedo sin memoria (VRAM). Baja el tamano %, las muestras, o usa 'Solo CPU'."
 RE_RANGE = re.compile(r"\[bfarm\] Animacion (\d+)-(\d+)")
 
 
@@ -142,18 +160,38 @@ def outputs(jid):
     return sorted(f.name for f in out.iterdir() if f.is_file())
 
 
-def new_job(name, blend, settings):
+def _link(a, b):
+    try:
+        os.link(a, b)          # mismo disco: no duplica GB
+    except OSError:
+        shutil.copy2(a, b)
+
+
+def new_job(name, blend, settings, src=None, link=False):
+    """src: carpeta con el .blend. link=True la copia con hardlinks (re-render sin re-subir)."""
     jid = secrets.token_hex(6)
     (JOBS / jid).mkdir()
+    if src is not None:
+        if link:
+            shutil.copytree(src, JOBS / jid / "input", copy_function=_link)
+        else:
+            shutil.move(str(src), str(JOBS / jid / "input"))
     j = dict(id=jid, name=name, blend=blend, settings=clean(settings), status="queued",
              created=time.time(), started=None, finished=None, progress=0.0,
-             frame=None, total=None, sample=None, samples=None, error="")
+             frame=None, total=None, sample=None, samples=None, error="", warn="")
     with LOCK:
         STATE[jid] = j
         QUEUE.append(jid)
         save(j)
     WAKE.set()
     return j
+
+
+def rerun(src_id, settings):
+    src = STATE.get(src_id)
+    if not src or not (JOBS / src_id / "input").is_dir():
+        raise ValueError("el archivo original ya no existe en el servidor")
+    return new_job(src["name"], src["blend"], settings, src=JOBS / src_id / "input", link=True)
 
 
 def run_job(j):
@@ -167,7 +205,7 @@ def run_job(j):
         cmd.append("--disable-autoexec")   # no ejecutar Python embebido en el .blend
     cmd += [str(jd / "input" / j["blend"]), "-P", str(HERE / "render_job.py"), "--", str(cfg)]
     with LOCK:
-        j.update(status="running", started=j["started"] or time.time(), error="")
+        j.update(status="running", started=j["started"] or time.time(), error="", last_at=time.time())
         save(j)
     first = last = None
     done = 0
@@ -175,7 +213,7 @@ def run_job(j):
     with open(jd / "log.txt", "a", errors="replace") as log:
         log.write("$ " + " ".join(cmd) + "\n")
         try:
-            if shutil.which("stdbuf"):   # Blender no vacia stdout en tuberias: sin esto el progreso no se ve
+            if os.environ.get("BFARM_STDBUF", "1") != "0" and shutil.which("stdbuf"):   # Blender no vacia stdout en tuberias: sin esto el progreso no se ve
                 cmd = ["stdbuf", "-o0", "-e0"] + cmd
             p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                                  errors="replace", cwd=str(jd), start_new_session=True)
@@ -187,6 +225,11 @@ def run_job(j):
             log.flush()
             if line.strip():
                 j["last"] = line.strip()[:200]
+                j["last_at"] = time.time()
+                if RE_DRIVER.search(line):
+                    j["warn"] = WARN_DRIVER
+                elif RE_OOM.search(line):
+                    j["warn"] = WARN_OOM
             m = RE_RANGE.search(line)
             if m:
                 a, b = int(m[1]), int(m[2])
@@ -322,9 +365,7 @@ def adopt(src_dir, name, settings):
     blend = find_blend(src_dir)
     if not blend:
         raise ValueError("No hay ningun .blend (sube un .blend o un .zip que lo contenga)")
-    j = new_job(name or blend, blend, settings)
-    shutil.move(str(src_dir), str(JOBS / j["id"] / "input"))
-    return j
+    return new_job(name or blend, blend, settings, src=src_dir)
 
 
 def inbox_watcher():
@@ -357,6 +398,148 @@ def inbox_watcher():
             except Exception as e:
                 print("inbox:", f.name, e, file=sys.stderr)
                 f.rename(f.with_suffix(f.suffix + ".error"))
+
+
+# ---------------------------------------------------------------- recursos (GPU / CPU / RAM / disco)
+SMI = os.environ.get("NVIDIA_SMI", "nvidia-smi")
+START = time.time()
+_ST = {"t": 0.0, "v": {}, "cpu": None, "cuda": None}
+_STL = threading.Lock()
+
+
+def _txt(path):
+    try:
+        return Path(path).read_text()
+    except OSError:
+        return None
+
+
+def _num(x):
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def gpu_stats():
+    try:
+        out = subprocess.run([SMI, "--query-gpu=index,name,utilization.gpu,memory.used,memory.total,temperature.gpu,"
+                              "power.draw,power.limit,driver_version", "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    gpus, driver = [], ""
+    for ln in out.strip().splitlines():
+        c = [x.strip() for x in ln.split(",")]
+        if len(c) < 9:
+            continue
+        driver = c[8]
+        gpus.append(dict(i=int(c[0]), name=c[1], util=_num(c[2]), vram_used=_num(c[3]), vram_total=_num(c[4]),
+                         temp=_num(c[5]), power=_num(c[6]), power_max=_num(c[7])))
+    if gpus and _ST["cuda"] is None:
+        try:
+            hdr = subprocess.run([SMI], capture_output=True, text=True, timeout=5).stdout
+            m = re.search(r"CUDA Version:\s*([\d.]+)", hdr)
+            _ST["cuda"] = m[1] if m else ""
+        except (OSError, subprocess.SubprocessError):
+            _ST["cuda"] = ""
+    if not gpus:                      # AMD (mejor esfuerzo)
+        try:
+            j = json.loads(subprocess.run(["rocm-smi", "--showuse", "--showmeminfo", "vram", "--showproductname",
+                                           "--json"], capture_output=True, text=True, timeout=5).stdout)
+            for k, v in j.items():
+                if k.startswith("card"):
+                    gpus.append(dict(i=int(k[4:]), name=v.get("Card Series") or v.get("Card series") or k,
+                                     util=_num(v.get("GPU use (%)")),
+                                     vram_used=(_num(v.get("VRAM Total Used Memory (B)")) or 0) / 1048576,
+                                     vram_total=(_num(v.get("VRAM Total Memory (B)")) or 0) / 1048576,
+                                     temp=None, power=None, power_max=None))
+        except (OSError, subprocess.SubprocessError, ValueError):
+            pass
+    return gpus, driver
+
+
+def cpu_stats():
+    pct = None
+    t = _txt("/proc/stat")
+    if t:
+        f = [int(x) for x in t.splitlines()[0].split()[1:9]]
+        idle, total = f[3] + f[4], sum(f)
+        prev = _ST["cpu"]
+        _ST["cpu"] = (idle, total)
+        if prev and total > prev[1]:
+            pct = round(100 * (1 - (idle - prev[0]) / (total - prev[1])), 1)
+    cores = None
+    q = (_txt("/sys/fs/cgroup/cpu.max") or "").split()      # limite real del contenedor
+    if len(q) == 2 and q[0] != "max" and _num(q[1]):
+        cores = round(int(q[0]) / int(q[1]), 1)
+    if cores is None:
+        try:
+            cores = len(os.sched_getaffinity(0))
+        except AttributeError:
+            cores = os.cpu_count()
+    model = ""
+    for ln in (_txt("/proc/cpuinfo") or "").splitlines():
+        if ln.startswith("model name"):
+            model = ln.split(":", 1)[1].strip()
+            break
+    return dict(pct=pct, cores=cores, model=model, load=os.getloadavg()[0] if hasattr(os, "getloadavg") else None)
+
+
+def ram_stats():
+    total = used = None
+    mi = {}
+    for ln in (_txt("/proc/meminfo") or "").splitlines():
+        k, _, v = ln.partition(":")
+        mi[k] = int(v.split()[0]) * 1024 if v.split() else 0
+    if mi.get("MemTotal"):
+        total, used = mi["MemTotal"], mi["MemTotal"] - mi.get("MemAvailable", 0)
+    for lim, cur, stat, key in (("/sys/fs/cgroup/memory.max", "/sys/fs/cgroup/memory.current",
+                                 "/sys/fs/cgroup/memory.stat", "inactive_file"),
+                                ("/sys/fs/cgroup/memory/memory.limit_in_bytes", "/sys/fs/cgroup/memory/memory.usage_in_bytes",
+                                 "/sys/fs/cgroup/memory/memory.stat", "total_inactive_file")):
+        L, C = _num((_txt(lim) or "").strip()), _num((_txt(cur) or "").strip())
+        if L and C and (total is None or L < total):    # limite del contenedor (si es menor que el host)
+            cache = 0
+            for ln in (_txt(stat) or "").splitlines():
+                if ln.startswith(key + " "):
+                    cache = int(ln.split()[1])
+            total, used = int(L), int(C - cache)
+            break
+    rss = None
+    for jid, p in list(PROC.items()):
+        m = re.search(r"VmRSS:\s+(\d+) kB", _txt("/proc/%d/status" % p.pid) or "")
+        if m:
+            rss = (rss or 0) + int(m[1]) * 1024
+    return dict(total=total, used=used, blender=rss)
+
+
+def stats():
+    with _STL:
+        if time.time() - _ST["t"] < 1:      # cache: varios espectadores no multiplican nvidia-smi
+            return _ST["v"]
+        gpus, driver = gpu_stats()
+        try:
+            du = shutil.disk_usage(DATA)
+            disk = dict(free=du.free, total=du.total)
+        except OSError:
+            disk = {}
+        with LOCK:
+            busy = any(j["status"] in ("queued", "running") for j in STATE.values())
+            last = max([j["finished"] or 0 for j in STATE.values()] + [START])
+            running = next((j["name"] for j in STATE.values() if j["status"] == "running"), "")
+        _ST["v"] = dict(now=time.time(), gpus=gpus, driver=driver, cuda=_ST["cuda"] or "", cpu=cpu_stats(),
+                        ram=ram_stats(), disk=disk, running=running, idle_since=None if busy else last,
+                        idle_warn_min=float(os.environ.get("IDLE_WARN_MIN", "10")))
+        _ST["t"] = time.time()
+        return _ST["v"]
+
+
+def need_disk(size):
+    try:
+        return shutil.disk_usage(DATA).free >= size
+    except OSError:
+        return True
 
 
 # ---------------------------------------------------------------- HTTP
@@ -416,6 +599,14 @@ class H(BaseHTTPRequestHandler):
         v["files"] = outputs(j["id"])
         pv = JOBS / j["id"] / "preview.png"
         v["preview"] = int(pv.stat().st_mtime) if pv.exists() else 0
+        v["warn"] = j.get("warn", "")
+        if j["status"] == "running":
+            v["idle_s"] = int(time.time() - j.get("last_at", time.time()))
+        if j["status"] == "queued":
+            q = [i for i in QUEUE if STATE[i]["status"] == "queued"]
+            v["pos"] = q.index(j["id"]) + 1 if j["id"] in q else 0
+            run = next((x for x in STATE.values() if x["status"] == "running"), None)
+            v["wait"] = run["name"] if run else ""
         return v
 
     # -- rutas
@@ -432,6 +623,8 @@ class H(BaseHTTPRequestHandler):
         if path == "/api/info":
             return self.send(200, dict(hw=HW, presets=PRESETS, defaults=DEFAULTS, max_upload=MAX_UPLOAD,
                                        inbox=str(INBOX), version=1))
+        if path == "/api/stats":
+            return self.send(200, stats())
         if path == "/api/jobs":
             with LOCK:
                 js = sorted(STATE.values(), key=lambda j: -j["created"])
@@ -514,6 +707,11 @@ class H(BaseHTTPRequestHandler):
                     return self.err(400, "subida invalida")
                 j = adopt(UPLOADS / uid, b.get("name"), b.get("settings"))
                 return self.send(201, self.view(j))
+            m = re.fullmatch(r"/api/jobs/([a-f0-9]{12})/rerun", p.path)
+            if m:
+                with LOCK:
+                    j = rerun(m[1], self.body_json().get("settings"))
+                return self.send(201, self.view(j))
             m = re.fullmatch(r"/api/jobs/([a-f0-9]{12})/cancel", p.path)
             if m:
                 with LOCK:
@@ -538,6 +736,8 @@ class H(BaseHTTPRequestHandler):
         name = safe_name(name)
         if not name.lower().endswith((".blend", ".zip")):
             return self.err(400, "solo .blend o .zip")
+        if not need_disk(n * 3):
+            return self.err(507, "poco espacio en disco en el servidor")
         uid = secrets.token_hex(8)
         d = UPLOADS / uid
         d.mkdir()
@@ -586,6 +786,8 @@ class H(BaseHTTPRequestHandler):
                 return self.err(413, "tamano invalido o mayor al maximo (%d GB)" % (MAX_UPLOAD >> 30))
             if not name.lower().endswith((".blend", ".zip")):
                 return self.err(400, "solo .blend o .zip")
+            if not need_disk(size * 3):
+                return self.err(507, "poco espacio en disco en el servidor (libera espacio o usa mas disco)")
             uid = secrets.token_hex(8)
             (UPLOADS / uid).mkdir()
             part = UPLOADS / uid / (name + ".part")

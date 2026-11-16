@@ -3,6 +3,8 @@ cfg = json.load(open(sys.argv[sys.argv.index("--") + 1]))
 if cfg.get("action") == "devices":
     print('BFARM_DEVICES {"backend":"OPTIX","gpus":["Fake RTX 4090","Fake RTX 4090"],"cpus":["Fake CPU"],"blender":"5.3.0"}'); sys.exit(0)
 s, out = cfg["settings"], cfg["outdir"]; os.makedirs(out, exist_ok=True)
+print("00:04.222  cycles | WARNING OptiX initialization failed because the installed NVIDIA driver is too old.", flush=True)
+time.sleep(1.5)
 frames = [1] if s["mode"] == "still" else list(range(1, 4))
 if s["mode"] != "still": print("[bfarm] Animacion 1-3", flush=True)
 for f in frames:

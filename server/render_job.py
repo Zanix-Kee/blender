@@ -66,6 +66,9 @@ if s["engine"] == "cycles":
     if s["samples"] > 0:
         c.samples = s["samples"]
         c.use_adaptive_sampling = True
+    if s.get("noise", 0) > 0:
+        c.use_adaptive_sampling = True
+        c.adaptive_threshold = s["noise"]
     c.use_denoising = bool(s["denoise"])
     if s["denoise"] and use_gpu and prefs.compute_device_type == "OPTIX":
         try:
